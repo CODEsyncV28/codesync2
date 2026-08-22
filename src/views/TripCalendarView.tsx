@@ -22,6 +22,9 @@ import {
   X,
   Sun,
   CloudSun,
+  CloudRain,
+  Snowflake,
+  Wind,
   Navigation,
   Share2,
   Check,
@@ -58,6 +61,45 @@ const CATEGORY_OPTIONS = [
   'Sports & Stadiums',
   'Nature & Outdoors',
 ];
+
+const getMockWeather = (dateStr: string, cityId?: string) => {
+  const hash = (dateStr + (cityId || '')).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  
+  const month = parseInt(dateStr.split('-')[1] || '6', 10);
+  let baseTemp = 20;
+  if (month >= 6 && month <= 8) baseTemp = 28;
+  if (month === 12 || month <= 2) baseTemp = 5;
+  
+  const temp = baseTemp + (hash % 15) - 5;
+
+  let conditions = [];
+  if (temp > 25) {
+      conditions = [
+        { type: 'Sunny', icon: Sun, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200' },
+        { type: 'Clear', icon: Sun, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200' }
+      ];
+  } else if (temp > 15) {
+      conditions = [
+        { type: 'Partly Cloudy', icon: CloudSun, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
+        { type: 'Sunny', icon: Sun, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200' },
+      ];
+  } else if (temp > 5) {
+      conditions = [
+        { type: 'Rainy', icon: CloudRain, color: 'text-sky-600', bg: 'bg-sky-100', border: 'border-sky-200' },
+        { type: 'Windy', icon: Wind, color: 'text-teal-600', bg: 'bg-teal-100', border: 'border-teal-200' },
+        { type: 'Partly Cloudy', icon: CloudSun, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
+      ];
+  } else {
+      conditions = [
+        { type: 'Snowy', icon: Snowflake, color: 'text-indigo-500', bg: 'bg-indigo-100', border: 'border-indigo-200' },
+        { type: 'Windy', icon: Wind, color: 'text-teal-600', bg: 'bg-teal-100', border: 'border-teal-200' },
+      ];
+  }
+  
+  const condition = conditions[hash % conditions.length];
+
+  return { condition, temp };
+};
 
 export const TripCalendarView: React.FC<TripCalendarViewProps> = ({ tripId, onNavigate }) => {
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -415,9 +457,15 @@ export const TripCalendarView: React.FC<TripCalendarViewProps> = ({ tripId, onNa
                     {activeDayObj.stop.city_name}, {activeDayObj.stop.country}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-100">
-                  <Sun className="w-3.5 h-3.5 text-amber-500" /> 22°C Clear &amp; Sunny
-                </span>
+                {(() => {
+                  const weather = getMockWeather(activeDayObj.dateStr, activeDayObj.stop?.city_id);
+                  const WeatherIcon = weather.condition.icon;
+                  return (
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full border ${weather.condition.bg} ${weather.condition.color} ${weather.condition.border}`}>
+                      <WeatherIcon className="w-3.5 h-3.5" /> {weather.temp}°C {weather.condition.type}
+                    </span>
+                  );
+                })()}
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 {activeDayObj.dateStr}

@@ -1,6 +1,7 @@
 export type AppScreen =
   | 'auth'
   | 'dashboard'
+  | 'community'
   | 'my-trips'
   | 'create-trip'
   | 'itinerary-builder'
@@ -123,6 +124,7 @@ export interface Activity {
   is_garden?: boolean;
   is_landmark?: boolean;
   is_sports_venue?: boolean;
+  is_adventure?: boolean;
   best_time_of_day?: 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Lunch' | 'Dinner' | 'Sunset' | 'Anytime';
   booking_required?: boolean;
 }

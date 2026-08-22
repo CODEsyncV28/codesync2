@@ -562,7 +562,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-2.5">
                   ⚡ 1-Click Instant Login:
                 </p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
                     onClick={() => handleQuickDemo('aarav')}
@@ -580,14 +580,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     <p className="font-bold text-slate-800 group-hover:text-amber-700 text-[11px]">Priya</p>
                     <p className="text-[9px] text-slate-500">Explorer</p>
                   </button>
-
+                </div>
+                
+                {/* Admin Separate Login */}
+                <div className="pt-2 border-t border-dashed border-slate-200">
+                  <p className="text-[10px] text-slate-400 text-center mb-2">Admin Portal Access (Demo Mode)</p>
                   <button
                     type="button"
                     onClick={() => handleQuickDemo('admin')}
-                    className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-center transition-all text-xs cursor-pointer group"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 hover:bg-black border border-slate-800 text-center transition-all text-xs cursor-pointer flex items-center justify-center gap-2"
                   >
-                    <p className="font-bold text-amber-900 text-[11px]">Marcus</p>
-                    <p className="text-[9px] text-amber-700 font-medium">Admin</p>
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <p className="font-bold text-white text-[11px] leading-tight">Admin Master Login</p>
+                      <p className="text-[9px] text-slate-400">Access Global Analytics & Management</p>
+                    </div>
                   </button>
                 </div>
               </div>

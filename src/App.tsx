@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { DashboardView } from './views/DashboardView';
 import { MyTripsView } from './views/MyTripsView';
 import { CreateTripView } from './views/CreateTripView';
+import { CommunityView } from './views/CommunityView';
 import { ItineraryBuilderView } from './views/ItineraryBuilderView';
 import { ItineraryView } from './views/ItineraryView';
 import { CitySearchView } from './views/CitySearchView';
@@ -156,6 +157,10 @@ function MainApp() {
             onOpenShareModal={handleOpenShare}
             highlightedTripId={selectedTripId}
           />
+        )}
+
+        {currentScreen === 'community' && (
+          <CommunityView onNavigate={handleNavigate} />
         )}
 
         {currentScreen === 'itinerary-builder' && (

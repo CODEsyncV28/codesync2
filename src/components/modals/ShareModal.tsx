@@ -51,7 +51,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const handleWhatsappShare = () => {
     const text = encodeURIComponent(`Take a look at my travel itinerary: "${trip.name}" - ${shareUrl}`);
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

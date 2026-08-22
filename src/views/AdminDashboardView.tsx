@@ -27,6 +27,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
 } from 'recharts';
 
 export const AdminDashboardView: React.FC = () => {
@@ -35,7 +37,7 @@ export const AdminDashboardView: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'cities' | 'activities'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'cities' | 'activities' | 'users' | 'trips'>('analytics');
 
   // Add City form modal
   const [showAddCity, setShowAddCity] = useState(false);
@@ -119,6 +121,15 @@ export const AdminDashboardView: React.FC = () => {
 
   const COLORS = ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#6366f1', '#14b8a6'];
 
+  const trendData = [
+    { month: 'Jan', users: 1200, trips: 400 },
+    { month: 'Feb', users: 1900, trips: 600 },
+    { month: 'Mar', users: 2400, trips: 800 },
+    { month: 'Apr', users: 3100, trips: 1100 },
+    { month: 'May', users: 4000, trips: 1500 },
+    { month: 'Jun', users: 4920, trips: 2100 },
+  ];
+
   return (
     <div className="space-y-6 pb-20 max-w-6xl mx-auto">
       {/* Admin Header */}
@@ -173,11 +184,13 @@ export const AdminDashboardView: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-1 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm w-fit">
+      <div className="flex flex-wrap items-center gap-1 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm w-fit">
         {[
           { id: 'analytics', label: 'Platform Analytics' },
           { id: 'cities', label: `World Cities (${cities.length})` },
           { id: 'activities', label: `Spot Catalog (${activities.length})` },
+          { id: 'trips', label: `Trips Executed (${trips.length})` },
+          { id: 'users', label: 'User Management' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -196,6 +209,25 @@ export const AdminDashboardView: React.FC = () => {
       {/* Tab 1: Analytics */}
       {activeTab === 'analytics' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm lg:col-span-2">
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              App Adoption Trends
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">Active users and executed trips over the last 6 months</p>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                  <YAxis yAxisId="left" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                  <Tooltip />
+                  <Line yAxisId="left" type="monotone" dataKey="users" stroke="#f59e0b" strokeWidth={3} activeDot={{ r: 8 }} name="Active Users" />
+                  <Line yAxisId="right" type="monotone" dataKey="trips" stroke="#10b981" strokeWidth={3} name="Trips Executed" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-base font-bold text-slate-900 mb-1">
               Destination Popularity Index
@@ -317,6 +349,86 @@ export const AdminDashboardView: React.FC = () => {
 
                 <div className="flex items-center space-x-2">
                   <span className="font-bold text-slate-900">{act.cost === 0 ? 'Free' : `$${act.cost} USD`}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Trips */}
+      {activeTab === 'trips' && (
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Platform Itineraries</h3>
+            <p className="text-xs text-slate-500">
+              Overview of trips executed by users.
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto pr-2">
+            {trips.length > 0 ? trips.map((trip) => (
+              <div key={trip.id} className="py-3 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <img
+                    src={trip.cover_photo || trip.cover_image_url || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=150&q=80'}
+                    alt={trip.name}
+                    className="w-12 h-12 rounded-xl object-cover"
+                  />
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">{trip.name}</h4>
+                    <p className="text-slate-500 text-[11px]">
+                      {trip.start_date} to {trip.end_date} • {trip.stops?.length || 0} stops
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${trip.is_public ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                    {trip.is_public ? 'Public' : 'Private'}
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <p className="text-xs text-slate-500 py-4">No trips found.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Users */}
+      {activeTab === 'users' && (
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">User Management</h3>
+            <p className="text-xs text-slate-500">
+              Manage platform users and view their adoption status.
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto pr-2">
+            {[
+              { id: 'u1', name: 'Elena Rostova', email: 'elena@example.com', role: 'user', trips: 4, joined: '2023-11-15' },
+              { id: 'u2', name: 'Priya Patel', email: 'priya.patel@globetrotter.io', role: 'user', trips: 12, joined: '2023-09-02' },
+              { id: 'u3', name: 'Marcus Vance', email: 'admin@globetrotter.io', role: 'admin', trips: 0, joined: '2023-08-01' },
+              { id: 'u4', name: 'John Doe', email: 'john@example.com', role: 'user', trips: 2, joined: '2024-01-10' },
+              { id: 'u5', name: 'Sarah Smith', email: 'sarah@example.com', role: 'user', trips: 1, joined: '2024-02-22' },
+            ].map((usr) => (
+              <div key={usr.id} className="py-3 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-sm">
+                    {usr.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      {usr.name}
+                      {usr.role === 'admin' && (
+                        <span className="bg-amber-100 text-amber-800 text-[9px] uppercase px-1.5 rounded-sm">Admin</span>
+                      )}
+                    </h4>
+                    <p className="text-slate-500 text-[11px]">{usr.email}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-slate-800">{usr.trips} Trips</p>
+                  <p className="text-[10px] text-slate-400">Joined {usr.joined}</p>
                 </div>
               </div>
             ))}

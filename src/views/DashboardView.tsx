@@ -98,10 +98,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAiPlanner,
   onSelectTrip,
 }) => {
-  const { user, toggleSaveDestination } = useAuth();
+  const { user, toggleSaveDestination, updateUserProfile } = useAuth();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleCurrencyChange = async (newCurrency: string) => {
+    if (user) {
+      await updateUserProfile({ preferred_currency: newCurrency });
+    }
+  };
 
   // Search & Filter toolbar states matching Screen 3 wireframe
   const [searchQuery, setSearchQuery] = useState('');
@@ -354,6 +360,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Sparkles className="w-4 h-4 text-amber-300" />
               <span>AI Itinerary Generator</span>
             </button>
+
+            <div className="flex items-center gap-2 ml-auto lg:ml-4 bg-white/10 border border-white/20 rounded-xl px-4 py-2 hover:bg-white/20 transition-all">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <select
+                value={user?.preferred_currency || 'USD'}
+                onChange={(e) => handleCurrencyChange(e.target.value)}
+                className="bg-transparent text-white font-bold text-xs outline-none cursor-pointer appearance-none pr-4"
+              >
+                <option value="USD" className="text-black">USD ($)</option>
+                <option value="EUR" className="text-black">EUR (€)</option>
+                <option value="GBP" className="text-black">GBP (£)</option>
+                <option value="INR" className="text-black">INR (₹)</option>
+                <option value="JPY" className="text-black">JPY (¥)</option>
+                <option value="AUD" className="text-black">AUD ($)</option>
+                <option value="CAD" className="text-black">CAD ($)</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

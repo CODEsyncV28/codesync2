@@ -13,6 +13,7 @@ import {
   Globe,
   LogIn,
   Layers,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AppScreen } from '../types';
@@ -76,6 +77,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
+              id="nav-community-btn"
+              onClick={() => onNavigate('community')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                currentScreen === 'community'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Community
+            </button>
+
+            <button
               id="nav-mytrips-btn"
               onClick={() => onNavigate('my-trips')}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -87,6 +101,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Calendar className="w-4 h-4" />
               My Trips
             </button>
+
+            {isAdmin && (
+              <button
+                id="nav-admin-btn"
+                onClick={() => onNavigate('admin-dashboard')}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  currentScreen === 'admin-dashboard'
+                    ? 'bg-amber-100 text-amber-900 shadow-sm border border-amber-200'
+                    : 'text-slate-600 hover:text-amber-900 hover:bg-amber-50'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                Admin
+              </button>
+            )}
 
             <button
               id="nav-cities-btn"
@@ -178,91 +207,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden sm:inline">Plan Trip</span>
             </button>
 
-            {/* Circular Profile Avatar (Screen 3, 4, 5 Wireframe) */}
+            {/* Circular Profile Avatar */}
             {user ? (
-              <div className="relative">
-                <button
-                  id="user-profile-menu-btn"
-                  onClick={() => setProfileOpen(!profileOpen)}
-                  aria-label="User Profile Menu"
-                  className="w-10 h-10 rounded-full border-2 border-slate-200 hover:border-amber-500 overflow-hidden shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center bg-slate-100 ring-2 ring-transparent hover:ring-amber-200"
-                >
-                  <img
-                    src={user.photo_url || user.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
-                    alt={user.display_name || user.name || 'User'}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-
-                {profileOpen && (
-                  <div
-                    className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-                    onMouseLeave={() => setProfileOpen(false)}
-                  >
-                    <div className="px-4 py-2 border-b border-slate-100">
-                      <p className="text-xs font-bold text-slate-900">
-                        {user.display_name || user.name || 'Traveler'}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
-                      {isAdmin && (
-                        <span className="inline-block mt-1 text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                          Curator / Admin
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="py-1">
-                      <button
-                        onClick={() => {
-                          onNavigate('profile-settings');
-                          setProfileOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-                        Traveler Profile & Currency
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          onNavigate('my-trips');
-                          setProfileOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <FolderHeart className="w-3.5 h-3.5 text-slate-400" />
-                        My Saved Trips ({user.saved_destinations?.length || 0} Places)
-                      </button>
-
-                      {isAdmin && (
-                        <button
-                          onClick={() => {
-                            onNavigate('admin-dashboard');
-                            setProfileOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-xs text-amber-700 hover:bg-amber-50 flex items-center gap-2 font-medium cursor-pointer"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                          Global Destination Curator
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="border-t border-slate-100 pt-1">
-                      <button
-                        onClick={() => {
-                          logout();
-                          setProfileOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-medium cursor-pointer"
-                      >
-                        <LogOut className="w-3.5 h-3.5 text-rose-500" />
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                id="user-profile-btn"
+                onClick={() => onNavigate('profile-settings')}
+                aria-label="User Profile"
+                className="w-10 h-10 rounded-full border-2 border-slate-200 hover:border-amber-500 overflow-hidden shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center bg-slate-100 ring-2 ring-transparent hover:ring-amber-200"
+              >
+                <img
+                  src={user.photo_url || user.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
+                  alt={user.display_name || user.name || 'User'}
+                  className="w-full h-full object-cover"
+                />
+              </button>
             ) : (
               <div className="flex items-center gap-1.5">
                 <button
@@ -294,6 +252,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Compass className="w-4 h-4 mb-0.5" />
           <span>Explore</span>
+        </button>
+        <button
+          onClick={() => onNavigate('community')}
+          className={`flex flex-col items-center py-1 px-2 rounded-lg ${
+            currentScreen === 'community' ? 'text-amber-600 font-bold' : ''
+          }`}
+        >
+          <Users className="w-4 h-4 mb-0.5" />
+          <span>Community</span>
         </button>
         <button
           onClick={() => onNavigate('my-trips')}

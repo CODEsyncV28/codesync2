@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as htmlToImage from 'html-to-image';
 import {
   MapPin,
   Calendar,
@@ -21,6 +22,11 @@ import {
   Layers,
   BookmarkCheck,
   ArrowRight,
+  Sun,
+  CloudRain,
+  CloudSun,
+  Snowflake,
+  Wind
 } from 'lucide-react';
 import { Trip, TripStop, TripActivity } from '../types';
 import { tripService } from '../services/tripService';
@@ -32,6 +38,45 @@ interface ItineraryViewProps {
   onOpenShareModal: (trip: Trip) => void;
 }
 
+const getMockWeather = (dateStr: string, cityId?: string) => {
+  const hash = (dateStr + (cityId || '')).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  
+  const month = parseInt(dateStr.split('-')[1] || '6', 10);
+  let baseTemp = 20;
+  if (month >= 6 && month <= 8) baseTemp = 28;
+  if (month === 12 || month <= 2) baseTemp = 5;
+  
+  const temp = baseTemp + (hash % 15) - 5;
+
+  let conditions = [];
+  if (temp > 25) {
+      conditions = [
+        { type: 'Sunny', icon: Sun, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200' },
+        { type: 'Clear', icon: Sun, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200' }
+      ];
+  } else if (temp > 15) {
+      conditions = [
+        { type: 'Partly Cloudy', icon: CloudSun, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' },
+        { type: 'Sunny', icon: Sun, color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200' },
+      ];
+  } else if (temp > 5) {
+      conditions = [
+        { type: 'Rainy', icon: CloudRain, color: 'text-sky-600', bg: 'bg-sky-100', border: 'border-sky-200' },
+        { type: 'Windy', icon: Wind, color: 'text-teal-600', bg: 'bg-teal-100', border: 'border-teal-200' },
+        { type: 'Partly Cloudy', icon: CloudSun, color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
+      ];
+  } else {
+      conditions = [
+        { type: 'Snowy', icon: Snowflake, color: 'text-indigo-500', bg: 'bg-indigo-100', border: 'border-indigo-200' },
+        { type: 'Windy', icon: Wind, color: 'text-teal-600', bg: 'bg-teal-100', border: 'border-teal-200' },
+      ];
+  }
+  
+  const condition = conditions[hash % conditions.length];
+
+  return { condition, temp };
+};
+
 export const ItineraryView: React.FC<ItineraryViewProps> = ({
   tripId,
   onNavigate,
@@ -41,6 +86,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'daywise' | 'cities'>('daywise');
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     tripService.getTripById(tripId).then((res) => {
@@ -79,8 +125,22 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
     setTrip(updated);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!printRef.current) return;
+    try {
+      const dataUrl = await htmlToImage.toPng(printRef.current, {
+        pixelRatio: 2,
+        backgroundColor: '#0f172a',
+      });
+      const link = document.createElement('a');
+      link.download = `${trip?.name?.replace(/\s+/g, '_') || 'Trip'}_Itinerary.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to export image', err);
+      // Fallback
+      window.print();
+    }
   };
 
   // Group all activities by scheduled date
@@ -116,7 +176,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
   });
 
   return (
-    <div className="space-y-6 pb-20 max-w-5xl mx-auto">
+    <div ref={printRef} className="space-y-6 pb-20 max-w-5xl mx-auto">
       {/* Header Banner */}
       <div className="relative rounded-3xl overflow-hidden bg-slate-900 text-white shadow-xl">
         <div className="absolute inset-0 z-0">
@@ -282,6 +342,19 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                             {day.stop.country}
                           </span>
                         )}
+                        {(() => {
+                          const weather = getMockWeather(day.dateStr, day.stop?.city_id);
+                          const WeatherIcon = weather.condition.icon;
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${weather.condition.bg} ${weather.condition.color} ${weather.condition.border}`}
+                              title={`${weather.temp}°C, ${weather.condition.type}`}
+                            >
+                              <WeatherIcon className="w-3.5 h-3.5" />
+                              {weather.temp}°C {weather.condition.type}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {day.activities.length === 0
