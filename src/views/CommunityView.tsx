@@ -12,6 +12,7 @@ import {
 import { Trip, AppScreen } from '../types';
 import { tripService } from '../services/tripService';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { SafeImage } from '../components/SafeImage';
 
 interface CommunityViewProps {
@@ -20,6 +21,7 @@ interface CommunityViewProps {
 
 export const CommunityView: React.FC<CommunityViewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,7 +126,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ onNavigate }) => {
             </div>
             <div className="flex items-center gap-2 text-xs text-white/70">
               <Wallet className="w-4 h-4 text-amber-400" />
-              <span>{trip.target_budget ? `$${trip.target_budget.toLocaleString()}` : 'Flexible'}</span>
+              <span>{trip.target_budget ? formatPrice(trip.target_budget) : 'Flexible'}</span>
             </div>
           </div>
           

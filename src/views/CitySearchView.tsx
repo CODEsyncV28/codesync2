@@ -13,6 +13,7 @@ import {
 import { City, Continent } from '../types';
 import { cityService } from '../services/cityService';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { SafeImage } from '../components/SafeImage';
 
 interface CitySearchViewProps {
@@ -25,6 +26,7 @@ export const CitySearchView: React.FC<CitySearchViewProps> = ({
   onAddToTrip,
 }) => {
   const { user, toggleSaveDestination } = useAuth();
+  const { currencySymbol, formatPrice } = useCurrency();
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -104,8 +106,8 @@ export const CitySearchView: React.FC<CitySearchViewProps> = ({
               className="rounded-2xl border border-slate-200 px-3.5 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="popularity">Most Popular First</option>
-              <option value="cost_asc">Cost: Budget First ($)</option>
-              <option value="cost_desc">Cost: Luxury First ($)</option>
+              <option value="cost_asc">Cost: Budget First ({currencySymbol})</option>
+              <option value="cost_desc">Cost: Luxury First ({currencySymbol}{currencySymbol}{currencySymbol})</option>
               <option value="name">City Name (A - Z)</option>
             </select>
           </div>
@@ -144,7 +146,7 @@ export const CitySearchView: React.FC<CitySearchViewProps> = ({
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {'$'.repeat(idx > 3 ? 3 : idx)}
+                  {currencySymbol.repeat(idx > 3 ? 3 : idx)}
                 </button>
               ))}
             </div>
@@ -244,7 +246,7 @@ export const CitySearchView: React.FC<CitySearchViewProps> = ({
                           Avg Daily Cost
                         </span>
                         <span className="font-black text-emerald-800">
-                          ${city.avg_daily_cost} USD / day
+                          {formatPrice(city.avg_daily_cost)} / day
                         </span>
                       </div>
                       <div>

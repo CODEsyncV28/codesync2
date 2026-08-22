@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, Calendar, Tag, Image as ImageIcon, Sparkles, Utensils, Flower2, CheckCircle2 } from 'lucide-react';
 import { Activity, ActivityCategory, TripActivity, TripStop } from '../../types';
 import { cityService } from '../../services/cityService';
+import { useCurrency } from '../../context/CurrencyContext';
 import { SafeImage } from '../SafeImage';
 
 const CATEGORIES: ActivityCategory[] = [
@@ -34,6 +35,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
   presetActivity,
   initialDate,
 }) => {
+  const { currencySymbol, formatPrice } = useCurrency();
   const [tab, setTab] = useState<'catalog' | 'custom'>(presetActivity || editingActivity ? 'custom' : 'catalog');
   const [catalogActivities, setCatalogActivities] = useState<Activity[]>([]);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>('');
@@ -283,7 +285,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
                     <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400 font-semibold">{act.duration} hrs</span>
                       <span className="font-black text-slate-900">
-                        {act.cost === 0 ? 'Free' : `$${act.cost.toLocaleString('en-US')}`}
+                        {act.cost === 0 ? 'Free' : formatPrice(act.cost)}
                       </span>
                     </div>
                   </div>
@@ -350,7 +352,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Entry Cost ($ USD)
+                  Entry Cost ({currencySymbol})
                 </label>
                 <div className="relative">
                   <input
@@ -362,7 +364,7 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
                     onChange={(e) => setCost(Number(e.target.value))}
                     className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
-                  <span className="text-amber-700 font-extrabold text-xs absolute left-3 top-2">$</span>
+                  <span className="text-amber-700 font-extrabold text-xs absolute left-3 top-2">{currencySymbol}</span>
                 </div>
               </div>
             </div>

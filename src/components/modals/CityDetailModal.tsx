@@ -4,6 +4,7 @@ import { City, Activity, Trip } from '../../types';
 import { cityService } from '../../services/cityService';
 import { tripService } from '../../services/tripService';
 import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { SafeImage } from '../SafeImage';
 
 interface CityDetailModalProps {
@@ -22,6 +23,7 @@ export const CityDetailModal: React.FC<CityDetailModalProps> = ({
   userTrips,
 }) => {
   const { user, toggleSaveDestination } = useAuth();
+  const { formatPrice, currencySymbol } = useCurrency();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [tripsList, setTripsList] = useState<Trip[]>(userTrips || []);
   const [selectedTripId, setSelectedTripId] = useState<string>('');
@@ -107,7 +109,7 @@ export const CityDetailModal: React.FC<CityDetailModalProps> = ({
               <div className="flex justify-center items-center gap-0.5 mt-1 text-emerald-600 font-bold text-sm">
                 {[...Array(5)].map((_, i) => (
                   <span key={i} className={i < city.cost_index ? 'opacity-100' : 'opacity-20'}>
-                    $
+                    {currencySymbol}
                   </span>
                 ))}
               </div>
@@ -118,8 +120,7 @@ export const CityDetailModal: React.FC<CityDetailModalProps> = ({
                 Avg Daily Spend
               </p>
               <p className="text-sm font-bold text-slate-900 mt-0.5 flex items-center justify-center gap-0.5">
-                <span className="text-sm font-black text-emerald-600">$</span>
-                {city.avg_daily_cost.toLocaleString('en-US')} / day
+                {formatPrice(city.avg_daily_cost)} / day
               </p>
             </div>
 
@@ -175,7 +176,7 @@ export const CityDetailModal: React.FC<CityDetailModalProps> = ({
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-slate-900">{act.cost === 0 ? 'Free' : `$${act.cost.toLocaleString('en-US')}`}</span>
+                    <span className="text-sm font-bold text-slate-900">{act.cost === 0 ? 'Free' : formatPrice(act.cost)}</span>
                   </div>
                 ))}
               </div>

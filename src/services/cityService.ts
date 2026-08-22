@@ -376,4 +376,42 @@ export const cityService = {
     }
     return activity;
   },
+
+  async updateActivity(activity: Activity): Promise<Activity> {
+    const local = getLocalActivities();
+    const updated = local.map((a) => (a.id === activity.id ? activity : a));
+    saveLocalActivities(updated);
+
+    try {
+      await setDoc(doc(db, 'activities', activity.id), activity, { merge: true });
+    } catch (err) {
+      console.warn('Firestore update activity error:', err);
+    }
+    return activity;
+  },
+
+  async updateCity(city: City): Promise<City> {
+    const local = getLocalCities();
+    const updated = local.map((c) => (c.id === city.id ? city : c));
+    saveLocalCities(updated);
+
+    try {
+      await setDoc(doc(db, 'cities', city.id), city, { merge: true });
+    } catch (err) {
+      console.warn('Firestore update city error:', err);
+    }
+    return city;
+  },
+
+  async deleteActivity(activityId: string): Promise<void> {
+    const local = getLocalActivities();
+    const updated = local.filter((a) => a.id !== activityId);
+    saveLocalActivities(updated);
+  },
+
+  async deleteCity(cityId: string): Promise<void> {
+    const local = getLocalCities();
+    const updated = local.filter((c) => c.id !== cityId);
+    saveLocalCities(updated);
+  },
 };

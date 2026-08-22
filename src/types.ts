@@ -105,6 +105,9 @@ export interface City {
   timezone?: string;
   language?: string;
   tags?: string[];
+  is_curated?: boolean;
+  curator_score?: number;
+  curator_notes?: string;
 }
 
 export interface Activity {
@@ -125,6 +128,12 @@ export interface Activity {
   is_landmark?: boolean;
   is_sports_venue?: boolean;
   is_adventure?: boolean;
+  is_curated?: boolean;
+  is_featured?: boolean;
+  curator_verified?: boolean;
+  curator_badge?: string;
+  curator_score?: number;
+  curator_notes?: string;
   best_time_of_day?: 'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Lunch' | 'Dinner' | 'Sunset' | 'Anytime';
   booking_required?: boolean;
 }

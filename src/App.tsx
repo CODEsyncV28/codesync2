@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Compass, Globe } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './views/DashboardView';
 import { MyTripsView } from './views/MyTripsView';
@@ -276,7 +277,9 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <CurrencyProvider>
+        <MainApp />
+      </CurrencyProvider>
     </AuthProvider>
   );
 }

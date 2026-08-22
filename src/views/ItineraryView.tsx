@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Trip, TripStop, TripActivity } from '../types';
 import { tripService } from '../services/tripService';
+import { useCurrency } from '../context/CurrencyContext';
 import { SafeImage } from '../components/SafeImage';
 
 interface ItineraryViewProps {
@@ -82,6 +83,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
   onNavigate,
   onOpenShareModal,
 }) => {
+  const { formatPrice } = useCurrency();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'daywise' | 'cities'>('daywise');
@@ -254,7 +256,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
               </span>
               <span className="text-slate-400">•</span>
               <span className="text-xs font-bold text-emerald-300">
-                ${budgetSummary.totalPlanned.toLocaleString('en-US')} Est. Budget
+                {formatPrice(budgetSummary.totalPlanned)} Est. Budget
               </span>
             </div>
           </div>
@@ -366,7 +368,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
 
                   <div className="flex items-center space-x-3">
                     <span className="text-xs font-extrabold text-slate-900 hidden sm:block">
-                      ${day.activities.reduce((acc, a) => acc + a.cost, 0).toLocaleString('en-US')} Total
+                      {formatPrice(day.activities.reduce((acc, a) => acc + a.cost, 0))} Total
                     </span>
                     <button className="p-1 text-slate-400 hover:text-slate-600">
                       {isCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
@@ -449,7 +451,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
 
                             <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                               <span className="text-sm font-extrabold text-slate-900 sm:text-right block">
-                                {act.cost === 0 ? 'Free' : `$${act.cost.toLocaleString('en-US')}`}
+                                {act.cost === 0 ? 'Free' : formatPrice(act.cost)}
                               </span>
                             </div>
                           </div>
@@ -487,7 +489,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                     {stop.city_name}, {stop.country}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {stop.start_date} to {stop.end_date} • Stay: {stop.accommodation_cost_per_night ? `$${stop.accommodation_cost_per_night.toLocaleString('en-US')}/night` : 'Included'} • Transport: {stop.transport_cost_to_stop ? `$${stop.transport_cost_to_stop.toLocaleString('en-US')}` : 'Included'} ({stop.transport_mode || 'Train'})
+                    {stop.start_date} to {stop.end_date} • Stay: {stop.accommodation_cost_per_night ? `${formatPrice(stop.accommodation_cost_per_night)}/night` : 'Included'} • Transport: {stop.transport_cost_to_stop ? formatPrice(stop.transport_cost_to_stop) : 'Included'} ({stop.transport_mode || 'Train'})
                   </p>
                 </div>
               </div>
@@ -504,7 +506,7 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                       className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
                     >
                       <span className="font-semibold text-slate-800 line-clamp-1">{a.name}</span>
-                      <span className="font-bold text-slate-900">{a.cost === 0 ? 'Free' : `$${a.cost.toLocaleString('en-US')}`}</span>
+                      <span className="font-bold text-slate-900">{a.cost === 0 ? 'Free' : formatPrice(a.cost)}</span>
                     </div>
                   ))}
                 </div>

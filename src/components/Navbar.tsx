@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency, SUPPORTED_CURRENCIES, CurrencyCode } from '../context/CurrencyContext';
 import { AppScreen } from '../types';
 
 interface NavbarProps {
@@ -32,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   selectedTripId,
 }) => {
   const { user, logout, isAdmin, loginAsDemoUser } = useAuth();
+  const { currency, setCurrency, supportedCurrencies } = useCurrency();
   const [profileOpen, setProfileOpen] = React.useState(false);
 
   return (
@@ -186,6 +188,27 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action Area */}
           <div className="flex items-center space-x-2">
+            {/* Global Currency Selector */}
+            <div className="relative">
+              <select
+                id="global-currency-select"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                title="Change Global Currency"
+                aria-label="Change Global Currency"
+                className="h-9 pl-2.5 pr-7 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer appearance-none transition-colors"
+              >
+                {supportedCurrencies.map((c) => (
+                  <option key={c.code} value={c.code} className="bg-white text-slate-900 font-medium">
+                    {c.symbol} {c.code}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500 text-[10px]">
+                ▼
+              </div>
+            </div>
+
             {onOpenAiPlanner && (
               <button
                 id="ai-planner-btn"

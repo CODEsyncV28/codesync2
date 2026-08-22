@@ -17,6 +17,7 @@ import { Activity, ActivityCategory, Trip, City } from '../types';
 import { cityService } from '../services/cityService';
 import { tripService } from '../services/tripService';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { SafeImage } from '../components/SafeImage';
 
 const CATEGORIES: (ActivityCategory | 'All')[] = [
@@ -39,6 +40,7 @@ export const ActivitySearchView: React.FC<ActivitySearchViewProps> = ({
   onScheduleActivityToTrip,
 }) => {
   const { user } = useAuth();
+  const { formatPrice, currencySymbol } = useCurrency();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [userTrips, setUserTrips] = useState<Trip[]>([]);
@@ -261,7 +263,7 @@ export const ActivitySearchView: React.FC<ActivitySearchViewProps> = ({
 
           <div className="flex items-center gap-2 text-xs w-full sm:w-auto justify-between sm:justify-start">
             <span className="font-bold text-slate-500">Max Entry / Cost:</span>
-            <span className="font-black text-amber-700">${maxCost} USD</span>
+            <span className="font-black text-amber-700">{formatPrice(maxCost)}</span>
             <input
               type="range"
               min="0"
@@ -351,7 +353,7 @@ export const ActivitySearchView: React.FC<ActivitySearchViewProps> = ({
                         <span>{act.duration} hours</span>
                       </div>
                       <div className="font-black text-emerald-700 text-sm">
-                        {act.cost === 0 ? 'Free Entry' : `$${act.cost} USD`}
+                        {act.cost === 0 ? 'Free Entry' : formatPrice(act.cost)}
                       </div>
                     </div>
                   </div>

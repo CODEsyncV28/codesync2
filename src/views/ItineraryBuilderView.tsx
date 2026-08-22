@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { Trip, TripSection, SectionPlaceSpot, TripStop, TripActivity } from '../types';
 import { tripService } from '../services/tripService';
+import { useCurrency } from '../context/CurrencyContext';
 import { SEED_ACTIVITIES } from '../data/seedData';
 
 interface ItineraryBuilderViewProps {
@@ -53,6 +54,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
   onNavigate,
   onOpenShareModal,
 }) => {
+  const { currencySymbol, formatPrice } = useCurrency();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [sections, setSections] = useState<TripSection[]>([]);
@@ -657,7 +659,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400">Total Section Budget</p>
             <p className="text-xl font-black text-emerald-400">
-              ${totalSectionsBudget.toLocaleString('en-US')} USD
+              {formatPrice(totalSectionsBudget)}
             </p>
           </div>
         </div>
@@ -827,7 +829,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
                                 )}
 
                                 <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                                  {spot.cost && spot.cost > 0 ? `$${spot.cost} USD` : 'Free Entry'}
+                                  {spot.cost && spot.cost > 0 ? formatPrice(spot.cost) : 'Free Entry'}
                                 </span>
                               </div>
 
@@ -898,14 +900,14 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
                   >
                     <DollarSign className="w-3.5 h-3.5 text-emerald-700" />
                     <span>
-                      Budget: ${section.budget?.toLocaleString('en-US') || '0'} USD
+                      Budget: {formatPrice(section.budget || 0)}
                     </span>
                   </button>
                 </div>
 
                 {sectionPlacesCost > 0 && (
                   <span className="text-[11px] font-bold text-slate-500">
-                    Spots Total: <strong className="text-slate-800">${sectionPlacesCost} USD</strong>
+                    Spots Total: <strong className="text-slate-800">{formatPrice(sectionPlacesCost)}</strong>
                   </span>
                 )}
               </div>
@@ -944,7 +946,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
             </h3>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-              Confirm your itinerary with <strong className="text-amber-300 font-bold">{sections.length} day sections</strong>, <strong className="text-amber-300 font-bold">{totalPlacesCount} places to visit</strong>, and a total planned budget of <strong className="text-emerald-400 font-bold">${totalSectionsBudget.toLocaleString('en-US')} USD</strong>.
+              Confirm your itinerary with <strong className="text-amber-300 font-bold">{sections.length} day sections</strong>, <strong className="text-amber-300 font-bold">{totalPlacesCount} places to visit</strong>, and a total planned budget of <strong className="text-emerald-400 font-bold">{formatPrice(totalSectionsBudget)}</strong>.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-400 font-medium">
@@ -1039,7 +1041,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
                     >
                       <Plus className="w-3 h-3" />
                       <span>{act.name}</span>
-                      <span className="text-[10px] opacity-75">(${act.cost || 20})</span>
+                      <span className="text-[10px] opacity-75">({formatPrice(act.cost || 20)})</span>
                     </button>
                   ))}
                 </div>
@@ -1124,7 +1126,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-                    Estimated Cost ($ USD)
+                    Estimated Cost ({currencySymbol})
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -1313,7 +1315,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
               {/* Budget */}
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-                  Budget of this Section ($ USD)
+                  Budget of this Section ({currencySymbol})
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -1387,7 +1389,7 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
               </div>
               <div className="space-y-0.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Est. Budget</span>
-                <span className="text-sm font-black text-emerald-800">${totalSectionsBudget.toLocaleString('en-US')}</span>
+                <span className="text-sm font-black text-emerald-800">{formatPrice(totalSectionsBudget)}</span>
               </div>
             </div>
 

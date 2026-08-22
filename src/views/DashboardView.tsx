@@ -28,9 +28,11 @@ import {
   RefreshCw,
   FolderHeart,
   Eye,
+  ShieldCheck,
 } from 'lucide-react';
 import { Trip, City, Continent, Activity } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { tripService } from '../services/tripService';
 import { cityService } from '../services/cityService';
 import { SafeImage } from '../components/SafeImage';
@@ -52,7 +54,7 @@ const REGIONAL_SELECTIONS = [
     image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=600&q=80',
     continent: 'Europe' as Continent,
     badge: 'Art & Heritage',
-    avgBudget: '$2,800',
+    baseUsd: 2800,
   },
   {
     id: 'reg-east-asia',
@@ -61,7 +63,7 @@ const REGIONAL_SELECTIONS = [
     image: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=600&q=80',
     continent: 'Asia' as Continent,
     badge: 'Neon & Culture',
-    avgBudget: '$3,100',
+    baseUsd: 3100,
   },
   {
     id: 'reg-mediterranean',
@@ -70,7 +72,7 @@ const REGIONAL_SELECTIONS = [
     image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=600&q=80',
     continent: 'Europe' as Continent,
     badge: 'Sun & History',
-    avgBudget: '$2,400',
+    baseUsd: 2400,
   },
   {
     id: 'reg-north-america',
@@ -79,7 +81,7 @@ const REGIONAL_SELECTIONS = [
     image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=600&q=80',
     continent: 'North America' as Continent,
     badge: 'Skylines & Parks',
-    avgBudget: '$3,400',
+    baseUsd: 3400,
   },
   {
     id: 'reg-middle-east',
@@ -88,7 +90,7 @@ const REGIONAL_SELECTIONS = [
     image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=600&q=80',
     continent: 'Middle East' as Continent,
     badge: 'Wonders & Luxury',
-    avgBudget: '$2,900',
+    baseUsd: 2900,
   },
 ];
 
@@ -98,16 +100,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAiPlanner,
   onSelectTrip,
 }) => {
-  const { user, toggleSaveDestination, updateUserProfile } = useAuth();
+  const { user, toggleSaveDestination, isAdmin } = useAuth();
+  const { currency, currencySymbol, supportedCurrencies, setCurrency, formatPrice } = useCurrency();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const handleCurrencyChange = async (newCurrency: string) => {
-    if (user) {
-      await updateUserProfile({ preferred_currency: newCurrency });
-    }
-  };
 
   // Search & Filter toolbar states matching Screen 3 wireframe
   const [searchQuery, setSearchQuery] = useState('');
@@ -271,19 +268,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return [
         {
           key: 'budget-friendly',
-          title: 'Budget-Friendly ($ < $120/day)',
+          title: `Budget-Friendly (< ${formatPrice(120)}/day)`,
           subtitle: 'Great value stays, street dining, and rich cultural sights',
           cities: filteredCities.filter((c) => (c.avg_daily_cost || 0) < 120),
         },
         {
           key: 'moderate',
-          title: 'Moderate ($120 - $200/day)',
+          title: `Moderate (${formatPrice(120)} - ${formatPrice(200)}/day)`,
           subtitle: 'Balanced comfort, central boutique hotels, and landmark passes',
           cities: filteredCities.filter((c) => (c.avg_daily_cost || 0) >= 120 && (c.avg_daily_cost || 0) <= 200),
         },
         {
           key: 'luxury',
-          title: 'Premium & Luxury (> $200/day)',
+          title: `Premium & Luxury (> ${formatPrice(200)}/day)`,
           subtitle: 'High-end culinary capitals, skyline vistas, and luxury transport',
           cities: filteredCities.filter((c) => (c.avg_daily_cost || 0) > 200),
         },
@@ -361,25 +358,134 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>AI Itinerary Generator</span>
             </button>
 
-            <div className="flex items-center gap-2 ml-auto lg:ml-4 bg-white/10 border border-white/20 rounded-xl px-4 py-2 hover:bg-white/20 transition-all">
-              <DollarSign className="w-4 h-4 text-emerald-400" />
+            {isAdmin && (
+              <button
+                id="dash-banner-curator-btn"
+                onClick={() => onNavigate('admin-dashboard')}
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer border border-amber-300/60"
+                title="Curator Portal & Global Catalog Administration"
+              >
+                <ShieldCheck className="w-4 h-4 text-slate-950 stroke-[2.5]" />
+                <span>Curator Portal</span>
+                <span className="bg-slate-950 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
+                  Admin Only
+                </span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto lg:ml-4 bg-white/10 border border-white/20 rounded-xl px-3.5 py-2 hover:bg-white/20 transition-all">
+              <span className="font-extrabold text-xs text-emerald-400 min-w-4 text-center">
+                {currencySymbol}
+              </span>
               <select
-                value={user?.preferred_currency || 'USD'}
-                onChange={(e) => handleCurrencyChange(e.target.value)}
+                id="dashboard-currency-select"
+                aria-label="Select Currency"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
                 className="bg-transparent text-white font-bold text-xs outline-none cursor-pointer appearance-none pr-4"
               >
-                <option value="USD" className="text-black">USD ($)</option>
-                <option value="EUR" className="text-black">EUR (€)</option>
-                <option value="GBP" className="text-black">GBP (£)</option>
-                <option value="INR" className="text-black">INR (₹)</option>
-                <option value="JPY" className="text-black">JPY (¥)</option>
-                <option value="AUD" className="text-black">AUD ($)</option>
-                <option value="CAD" className="text-black">CAD ($)</option>
+                {supportedCurrencies.map((c) => (
+                  <option key={c.code} value={c.code} className="text-black bg-white">
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* ADMIN SECTION ONLY: CURATOR PORTAL & CATALOG CONTROL CENTER */}
+      {/* ========================================================================= */}
+      {isAdmin && (
+        <div
+          id="admin-curator-portal-dashboard-section"
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-stone-900 to-indigo-950 text-white border border-amber-500/30 p-6 sm:p-7 shadow-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300"
+        >
+          {/* Ambient glow */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-black uppercase tracking-wider border border-amber-400/30">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>Admin Section &bull; Curator Portal</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>Global Destination Curator Studio</span>
+                <Sparkles className="w-5 h-5 text-amber-400 hidden sm:inline" />
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Exclusive administration portal to verify world landmarks, curate street food spots and botanical gardens, manage catalog destinations, and spotlight featured itineraries.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+              <button
+                id="dash-open-curator-portal-cta"
+                onClick={() => onNavigate('admin-dashboard')}
+                className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer transform hover:-translate-y-0.5"
+              >
+                <Sparkles className="w-4 h-4 text-slate-950" />
+                <span>Open Curator Portal</span>
+                <ArrowRight className="w-4 h-4 text-slate-950" />
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Curator Status & Action Tiles */}
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/10 text-xs">
+            <div
+              onClick={() => onNavigate('admin-dashboard')}
+              className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3.5 transition-all cursor-pointer group"
+            >
+              <p className="text-[10px] uppercase font-bold text-amber-300 flex items-center justify-between">
+                <span>Destinations</span>
+                <Globe className="w-3.5 h-3.5 text-amber-400/70 group-hover:text-amber-300" />
+              </p>
+              <p className="text-lg font-black text-white mt-1">{cities.length} Indexed</p>
+              <span className="text-[10px] text-slate-400 group-hover:text-amber-200">Across 6 continents &rarr;</span>
+            </div>
+
+            <div
+              onClick={() => onNavigate('admin-dashboard')}
+              className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3.5 transition-all cursor-pointer group"
+            >
+              <p className="text-[10px] uppercase font-bold text-amber-300 flex items-center justify-between">
+                <span>Catalog Highlights</span>
+                <Landmark className="w-3.5 h-3.5 text-amber-400/70 group-hover:text-amber-300" />
+              </p>
+              <p className="text-lg font-black text-white mt-1">370+ Curated Spots</p>
+              <span className="text-[10px] text-slate-400 group-hover:text-amber-200">Landmarks, dining &amp; parks &rarr;</span>
+            </div>
+
+            <div
+              onClick={() => onNavigate('admin-dashboard')}
+              className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3.5 transition-all cursor-pointer group"
+            >
+              <p className="text-[10px] uppercase font-bold text-amber-300 flex items-center justify-between">
+                <span>Curator Status</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              </p>
+              <p className="text-lg font-black text-emerald-400 mt-1">Master Access</p>
+              <span className="text-[10px] text-slate-400 group-hover:text-amber-200">Verified admin permissions &rarr;</span>
+            </div>
+
+            <div
+              onClick={() => onNavigate('admin-dashboard')}
+              className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3.5 transition-all cursor-pointer group"
+            >
+              <p className="text-[10px] uppercase font-bold text-amber-300 flex items-center justify-between">
+                <span>Curator Actions</span>
+                <Compass className="w-3.5 h-3.5 text-amber-400/70 group-hover:text-amber-300" />
+              </p>
+              <p className="text-lg font-black text-white mt-1">Spotlight &amp; Verifications</p>
+              <span className="text-[10px] text-slate-400 group-hover:text-amber-200">Manage catalog entries &rarr;</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* SEARCH & FILTER TOOLBAR: [ Search bar ..... ] [ Group by ] [ Filter ] [ Sort by... ] */}
@@ -536,9 +642,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
                       { id: 'All', label: 'All Budgets' },
-                      { id: 'budget', label: '< $120 / day' },
-                      { id: 'moderate', label: '$120 - $200 / day' },
-                      { id: 'luxury', label: '> $200 / day' },
+                      { id: 'budget', label: `< ${formatPrice(120)} / day` },
+                      { id: 'moderate', label: `${formatPrice(120)} - ${formatPrice(200)} / day` },
+                      { id: 'luxury', label: `> ${formatPrice(200)} / day` },
                     ].map((b) => (
                       <button
                         key={b.id}
@@ -624,8 +730,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </p>
                 {[
                   { id: 'popularity', label: 'Top Popularity (High to Low)' },
-                  { id: 'cost-asc', label: 'Budget: Low to High ($)' },
-                  { id: 'cost-desc', label: 'Budget: High to Low ($$$)' },
+                  { id: 'cost-asc', label: `Budget: Low to High (${currencySymbol})` },
+                  { id: 'cost-desc', label: `Budget: High to Low (${currencySymbol}${currencySymbol}${currencySymbol})` },
                   { id: 'name', label: 'Alphabetical (A - Z)' },
                 ].map((item) => (
                   <button
@@ -863,7 +969,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                 Avg. Daily Cost
                               </span>
                               <span className="font-black text-slate-900 text-sm">
-                                ${city.avg_daily_cost || 150}{' '}
+                                {formatPrice(city.avg_daily_cost || 150)}{' '}
                                 <span className="text-[10px] font-normal text-slate-500">/ day</span>
                               </span>
                             </div>
@@ -933,7 +1039,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <h4 className="font-extrabold text-sm text-slate-900 truncate mt-1">{act.name}</h4>
                   <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                     <MapPin className="w-3 h-3 text-amber-600" />
-                    {act.city_name || 'Destination'} &bull; ${act.cost} &bull; {act.duration}h
+                    {act.city_name || 'Destination'} &bull; {formatPrice(act.cost)} &bull; {act.duration}h
                   </p>
                 </div>
               </div>
@@ -988,7 +1094,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     {reg.badge}
                   </span>
                   <span className="absolute bottom-2 right-2 text-white font-extrabold text-[10px] bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-xs">
-                    {reg.avgBudget}
+                    {formatPrice(reg.baseUsd)}
                   </span>
                 </div>
                 <div className="p-3 flex-1 flex flex-col justify-between">
@@ -1093,7 +1199,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {trip.stops?.length || 0} World Stops
                     </span>
                     <span className="font-black text-emerald-800 text-sm">
-                      ${budget.totalPlanned.toLocaleString('en-US')} USD
+                      {formatPrice(budget.totalPlanned)}
                     </span>
                   </div>
 

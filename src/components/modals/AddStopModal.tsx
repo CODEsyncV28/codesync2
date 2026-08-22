@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, MapPin, Calendar, Train, Plane, Bus, Car } from 'lucide-react';
 import { City, TripStop } from '../../types';
 import { cityService } from '../../services/cityService';
+import { useCurrency } from '../../context/CurrencyContext';
 
 interface AddStopModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const AddStopModal: React.FC<AddStopModalProps> = ({
   defaultEndDate = '',
   editingStop,
 }) => {
+  const { currencySymbol, formatPrice } = useCurrency();
   const [cities, setCities] = useState<City[]>([]);
   const [selectedCityId, setSelectedCityId] = useState<string>(initialCityId || '');
   const [startDate, setStartDate] = useState<string>(defaultStartDate);
@@ -119,7 +121,7 @@ export const AddStopModal: React.FC<AddStopModalProps> = ({
               <option value="">-- Choose Destination --</option>
               {cities.map((city) => (
                 <option key={city.id} value={city.id}>
-                  {city.name}, {city.country} • 10+ Spots • Avg ${city.avg_daily_cost}/day
+                  {city.name}, {city.country} • 10+ Spots • Avg {formatPrice(city.avg_daily_cost)}/day
                 </option>
               ))}
             </select>
@@ -185,7 +187,7 @@ export const AddStopModal: React.FC<AddStopModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Transport Cost ($ USD)
+                Transport Cost ({currencySymbol})
               </label>
               <div className="relative">
                 <input
@@ -197,7 +199,7 @@ export const AddStopModal: React.FC<AddStopModalProps> = ({
                   onChange={(e) => setTransportCost(Number(e.target.value))}
                   className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2 text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
-                <span className="text-amber-700 font-extrabold text-xs absolute left-3 top-2">$</span>
+                <span className="text-amber-700 font-extrabold text-xs absolute left-3 top-2">{currencySymbol}</span>
               </div>
             </div>
           </div>
@@ -205,7 +207,7 @@ export const AddStopModal: React.FC<AddStopModalProps> = ({
           {/* Accommodation Cost */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-              Est. Hotel / Accommodation per Night ($ USD)
+              Est. Hotel / Accommodation per Night ({currencySymbol})
             </label>
             <div className="relative">
               <input
@@ -217,7 +219,7 @@ export const AddStopModal: React.FC<AddStopModalProps> = ({
                 onChange={(e) => setAccommodationCost(Number(e.target.value))}
                 className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-2 text-sm font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
-              <span className="text-amber-700 font-extrabold text-sm absolute left-3 top-2">$</span>
+              <span className="text-amber-700 font-extrabold text-sm absolute left-3 top-2">{currencySymbol}</span>
             </div>
           </div>
 

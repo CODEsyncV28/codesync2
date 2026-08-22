@@ -14,6 +14,7 @@ import {
 import { Trip } from '../types';
 import { tripService } from '../services/tripService';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { SafeImage } from '../components/SafeImage';
 
 interface SharedItineraryViewProps {
@@ -28,6 +29,7 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
   onOpenShareModal,
 }) => {
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [cloning, setCloning] = useState(false);
@@ -167,7 +169,7 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
             </span>
             <span>•</span>
             <span className="text-emerald-300 font-bold">
-              Est. ${budget.totalPlanned.toLocaleString('en-US')} Budget
+              Est. {formatPrice(budget.totalPlanned)} Budget
             </span>
           </div>
         </div>
@@ -199,7 +201,7 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
                   {stop.city_name}, {stop.country}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {stop.start_date} to {stop.end_date} • Transport: {stop.transport_mode || 'Train'} ({stop.transport_cost_to_stop ? `$${stop.transport_cost_to_stop.toLocaleString('en-US')}` : 'Included'}) • Stay: {stop.accommodation_cost_per_night ? `$${stop.accommodation_cost_per_night.toLocaleString('en-US')}/night` : 'Included'}
+                  {stop.start_date} to {stop.end_date} • Transport: {stop.transport_mode || 'Train'} ({stop.transport_cost_to_stop ? formatPrice(stop.transport_cost_to_stop) : 'Included'}) • Stay: {stop.accommodation_cost_per_night ? `${formatPrice(stop.accommodation_cost_per_night)}/night` : 'Included'}
                 </p>
               </div>
             </div>
@@ -231,7 +233,7 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
                       </p>
                     </div>
                   </div>
-                  <span className="font-extrabold text-slate-900 text-sm">{act.cost === 0 ? 'Free' : `$${act.cost.toLocaleString('en-US')}`}</span>
+                  <span className="font-extrabold text-slate-900 text-sm">{act.cost === 0 ? 'Free' : formatPrice(act.cost)}</span>
                 </div>
               ))}
             </div>

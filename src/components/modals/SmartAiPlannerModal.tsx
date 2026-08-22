@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Sparkles, Compass, MapPin, Calendar, DollarSign, CheckCircle2, ArrowRight, Globe } from 'lucide-react';
 import { Trip, TripStop } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import { tripService } from '../../services/tripService';
 import { SEED_CITIES, SEED_ACTIVITIES } from '../../data/seedData';
 
@@ -17,6 +18,7 @@ export const SmartAiPlannerModal: React.FC<SmartAiPlannerModalProps> = ({
   onTripGenerated,
 }) => {
   const { user } = useAuth();
+  const { currency, currencySymbol } = useCurrency();
   const [vibe, setVibe] = useState<string>('Grand Western European Highlights');
   const [durationDays, setDurationDays] = useState<number>(10);
   const [travelStyle, setTravelStyle] = useState<'budget' | 'balanced' | 'luxury'>('balanced');
@@ -171,8 +173,8 @@ export const SmartAiPlannerModal: React.FC<SmartAiPlannerModalProps> = ({
           description: tripDesc,
           cover_photo: coverPhoto,
           is_public: true,
-          currency: 'USD',
-          currency_symbol: '$',
+          currency: currency,
+          currency_symbol: currencySymbol,
           target_budget: targetBudget,
           stops,
         });

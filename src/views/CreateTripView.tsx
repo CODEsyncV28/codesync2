@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { City, Trip, Activity, TripActivity } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { tripService } from '../services/tripService';
 import { cityService } from '../services/cityService';
 import { SEED_ACTIVITIES } from '../data/seedData';
@@ -36,6 +37,7 @@ export const CreateTripView: React.FC<CreateTripViewProps> = ({
   initialCityId,
 }) => {
   const { user } = useAuth();
+  const { currency, currencySymbol, formatPrice } = useCurrency();
   const [cities, setCities] = useState<City[]>([]);
   const [loadingCities, setLoadingCities] = useState(true);
 
@@ -272,8 +274,8 @@ export const CreateTripView: React.FC<CreateTripViewProps> = ({
           `Custom planned itinerary for ${cityObj.name}, ${cityObj.country} with structured day-by-day sections.`,
         cover_photo: cityObj.image_url,
         is_public: true,
-        currency: 'USD',
-        currency_symbol: '$',
+        currency: currency,
+        currency_symbol: currencySymbol,
         target_budget: Number(targetBudget) || 2500,
         stops: initialStops,
         sections: defaultSections,
@@ -364,7 +366,7 @@ export const CreateTripView: React.FC<CreateTripViewProps> = ({
                 >
                   {cities.map((city) => (
                     <option key={city.id} value={city.id}>
-                      {city.name}, {city.country} ({city.continent || city.region}) - ${city.avg_daily_cost}/day
+                      {city.name}, {city.country} ({city.continent || city.region}) - {formatPrice(city.avg_daily_cost)}/day
                     </option>
                   ))}
                 </select>
@@ -382,7 +384,7 @@ export const CreateTripView: React.FC<CreateTripViewProps> = ({
                   <div className="text-xs">
                     <p className="font-extrabold text-slate-900">{selectedCity.name}, {selectedCity.country}</p>
                     <p className="text-[11px] text-amber-800 font-medium">
-                      Est. ${selectedCity.avg_daily_cost}/day &bull; {selectedCity.best_season}
+                      Est. {formatPrice(selectedCity.avg_daily_cost)}/day &bull; {selectedCity.best_season}
                     </p>
                   </div>
                 </div>
@@ -436,7 +438,7 @@ export const CreateTripView: React.FC<CreateTripViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-1.5">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Target Budget ($ USD):
+                Target Budget ({currencySymbol}):
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -540,7 +542,7 @@ export const CreateTripView: React.FC<CreateTripViewProps> = ({
                       <Clock className="w-3.5 h-3.5 text-amber-300" /> {act.duration} hrs
                     </span>
                     <span className="bg-emerald-600/90 px-2 py-0.5 rounded-full text-white font-black">
-                      ${act.cost} USD
+                      {formatPrice(act.cost)}
                     </span>
                   </div>
                 </div>

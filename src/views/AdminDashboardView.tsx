@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
   PlusCircle,
@@ -12,11 +12,31 @@ import {
   Trash2,
   RefreshCw,
   Globe,
+  Star,
+  Award,
+  Bookmark,
+  Filter,
+  Search,
+  Tag,
+  Eye,
+  Check,
+  X,
+  Edit3,
+  SlidersHorizontal,
+  Utensils,
+  Trees,
+  Landmark,
+  Camera,
+  Heart,
+  AlertCircle,
+  ArrowRight,
+  Layers,
 } from 'lucide-react';
-import { City, Activity, Trip, Continent } from '../types';
+import { City, Activity, Trip, Continent, ActivityCategory } from '../types';
 import { cityService } from '../services/cityService';
 import { tripService } from '../services/tripService';
 import { useAuth } from '../context/AuthContext';
+import { SafeImage } from '../components/SafeImage';
 import {
   BarChart,
   Bar,
@@ -37,7 +57,27 @@ export const AdminDashboardView: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'cities' | 'activities' | 'users' | 'trips'>('analytics');
+  const [activeTab, setActiveTab] = useState<'curator' | 'analytics' | 'cities' | 'activities' | 'users' | 'trips'>('curator');
+
+  // Curator Portal states
+  const [curatorSearch, setCuratorSearch] = useState('');
+  const [curatorCategoryFilter, setCuratorCategoryFilter] = useState<string>('All');
+  const [curatorStatusFilter, setCuratorStatusFilter] = useState<'all' | 'spotlight' | 'verified'>('all');
+  const [showAddSpotModal, setShowAddSpotModal] = useState(false);
+  const [curatorNotice, setCuratorNotice] = useState<string | null>(null);
+
+  // Add Spot Form state
+  const [spotName, setSpotName] = useState('');
+  const [spotCityId, setSpotCityId] = useState('');
+  const [spotCategory, setSpotCategory] = useState<ActivityCategory>('Sightseeing');
+  const [spotDuration, setSpotDuration] = useState(2);
+  const [spotCost, setSpotCost] = useState(25);
+  const [spotImage, setSpotImage] = useState('');
+  const [spotDesc, setSpotDesc] = useState('');
+  const [spotCuratorBadge, setSpotCuratorBadge] = useState('⭐ Must-Visit Landmark');
+  const [spotCuratorScore, setSpotCuratorScore] = useState(95);
+  const [spotCuratorNotes, setSpotCuratorNotes] = useState('');
+  const [spotBestTime, setSpotBestTime] = useState<'Morning' | 'Afternoon' | 'Evening' | 'Night' | 'Lunch' | 'Dinner' | 'Sunset' | 'Anytime'>('Morning');
 
   // Add City form modal
   const [showAddCity, setShowAddCity] = useState(false);
@@ -58,12 +98,104 @@ export const AdminDashboardView: React.FC = () => {
     setCities(c);
     setActivities(a);
     setTrips(t);
+    if (c.length > 0 && !spotCityId) {
+      setSpotCityId(c[0].id);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     loadAll();
   }, [user]);
+
+  const showToast = (msg: string) => {
+    setCuratorNotice(msg);
+    setTimeout(() => {
+      setCuratorNotice(null);
+    }, 4000);
+  };
+
+  const handleToggleCuratorSpotlight = async (act: Activity) => {
+    const isNowCurated = !(act.is_curated || act.is_featured);
+    const updated: Activity = {
+      ...act,
+      is_curated: isNowCurated,
+      is_featured: isNowCurated,
+      curator_verified: isNowCurated ? true : act.curator_verified,
+      curator_score: act.curator_score || 92,
+      curator_badge: act.curator_badge || (act.category === 'Food & Dining' ? '🍜 Michelin Street Food' : act.category === 'Nature & Outdoors' ? '🌿 Secret Botanical Gem' : '⭐ Must-Visit Landmark'),
+    };
+    await cityService.updateActivity(updated);
+    setActivities((prev) => prev.map((a) => (a.id === act.id ? updated : a)));
+    showToast(`${act.name} ${isNowCurated ? 'added to Curator Spotlight!' : 'removed from spotlight.'}`);
+  };
+
+  const handleToggleCuratorVerified = async (act: Activity) => {
+    const isNowVerified = !act.curator_verified;
+    const updated: Activity = {
+      ...act,
+      curator_verified: isNowVerified,
+    };
+    await cityService.updateActivity(updated);
+    setActivities((prev) => prev.map((a) => (a.id === act.id ? updated : a)));
+    showToast(`${act.name} marked as ${isNowVerified ? 'Curator Verified ✓' : 'Unverified'}`);
+  };
+
+  const handleUpdateCuratorBadge = async (act: Activity, badge: string) => {
+    const updated: Activity = {
+      ...act,
+      curator_badge: badge,
+      is_curated: true,
+      curator_verified: true,
+    };
+    await cityService.updateActivity(updated);
+    setActivities((prev) => prev.map((a) => (a.id === act.id ? updated : a)));
+    showToast(`Badge updated for ${act.name}: ${badge}`);
+  };
+
+  const handleAddCuratedSpot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!spotName.trim() || !spotCityId) return;
+
+    const matchedCity = cities.find((c) => c.id === spotCityId);
+    const newSpotId = 'act-curated-' + Date.now();
+
+    const newActivity: Activity = {
+      id: newSpotId,
+      city_id: spotCityId,
+      city_name: matchedCity?.name || 'World City',
+      name: spotName.trim(),
+      category: spotCategory,
+      duration: Number(spotDuration) || 2,
+      cost: Number(spotCost) || 0,
+      description: spotDesc.trim() || `Curated experience in ${matchedCity?.name || 'the city'}.`,
+      image_url:
+        spotImage.trim() ||
+        'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800&q=80',
+      rating: 4.9,
+      is_curated: true,
+      is_featured: true,
+      curator_verified: true,
+      curator_badge: spotCuratorBadge,
+      curator_score: Number(spotCuratorScore) || 95,
+      curator_notes: spotCuratorNotes.trim() || 'Verified by GlobeTrotter Lead Editorial Curator.',
+      best_time_of_day: spotBestTime,
+      is_food_spot: spotCategory === 'Food & Dining',
+      is_garden: spotCategory === 'Nature & Outdoors',
+      is_landmark: spotCategory === 'Sightseeing',
+      is_adventure: spotCategory === 'Adventure',
+      is_sports_venue: spotCategory === 'Sports & Stadiums',
+    };
+
+    await cityService.addActivity(newActivity);
+    setShowAddSpotModal(false);
+    setSpotName('');
+    setSpotDesc('');
+    setSpotImage('');
+    setSpotCuratorNotes('');
+    showToast(`Successfully added curated spot: "${newActivity.name}"!`);
+    loadAll();
+  };
 
   const handleAddCity = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +222,9 @@ export const AdminDashboardView: React.FC = () => {
       best_season: 'April – October',
       currency: 'USD',
       tags: ['Global', 'Landmarks', 'Culture'],
+      is_curated: true,
+      curator_score: 95,
+      curator_notes: 'Editorial destination catalog approved.',
     });
 
     setShowAddCity(false);
@@ -97,8 +232,34 @@ export const AdminDashboardView: React.FC = () => {
     setCityCountry('');
     setCityDesc('');
     setCityImage('');
+    showToast(`Published new destination: ${cityName.trim()}!`);
     loadAll();
   };
+
+  // Filtered Curator spots
+  const filteredCuratorActivities = useMemo(() => {
+    return activities.filter((act) => {
+      const q = curatorSearch.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        act.name.toLowerCase().includes(q) ||
+        (act.city_name && act.city_name.toLowerCase().includes(q)) ||
+        act.category.toLowerCase().includes(q) ||
+        (act.curator_badge && act.curator_badge.toLowerCase().includes(q));
+
+      const matchCategory =
+        curatorCategoryFilter === 'All' || act.category === curatorCategoryFilter;
+
+      let matchStatus = true;
+      if (curatorStatusFilter === 'spotlight') {
+        matchStatus = !!act.is_curated || !!act.is_featured;
+      } else if (curatorStatusFilter === 'verified') {
+        matchStatus = !!act.curator_verified;
+      }
+
+      return matchSearch && matchCategory && matchStatus;
+    });
+  }, [activities, curatorSearch, curatorCategoryFilter, curatorStatusFilter]);
 
   // Analytics charts data
   const popularityData = (cities || []).slice(0, 8).map((c) => ({
@@ -130,30 +291,51 @@ export const AdminDashboardView: React.FC = () => {
     { month: 'Jun', users: 4920, trips: 2100 },
   ];
 
+  const totalCuratedCount = activities.filter((a) => a.is_curated || a.is_featured).length;
+  const totalVerifiedCount = activities.filter((a) => a.curator_verified).length;
+
   return (
     <div className="space-y-6 pb-20 max-w-6xl mx-auto">
+      {/* Curator Toast Notice */}
+      {curatorNotice && (
+        <div className="fixed top-20 right-6 z-50 bg-slate-900 text-amber-300 border border-amber-400 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{curatorNotice}</span>
+        </div>
+      )}
+
       {/* Admin Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-stone-900 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-black mb-2 border border-amber-400/30">
             <ShieldCheck className="w-4 h-4" />
-            <span>Curator Portal & Global Analytics</span>
+            <span>Admin Section &bull; Curator Portal</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            GlobeTrotter Master Management
+            GlobeTrotter Curator &amp; Master Studio
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            Manage global destination catalogs across 6 continents, curated spots, traveler itineraries, and platform metrics.
+            Curate world destinations, verify landmark spots &amp; dining, build editorial collections, and oversee global analytics.
           </p>
         </div>
 
-        <button
-          onClick={loadAll}
-          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowAddSpotModal(true)}
+            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add Curated Spot</span>
+          </button>
+
+          <button
+            onClick={loadAll}
+            className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Reload Data"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* 4 Stats Cards */}
@@ -165,27 +347,28 @@ export const AdminDashboardView: React.FC = () => {
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-bold uppercase text-slate-400">Catalog Experiences</p>
-          <p className="text-2xl font-black text-indigo-600 mt-1">{activities.length}</p>
-          <span className="text-[11px] text-slate-500 font-semibold">Curated Landmarks & Dining</span>
+          <p className="text-[10px] font-bold uppercase text-slate-400">Curator Spotlight Picks</p>
+          <p className="text-2xl font-black text-amber-600 mt-1">{totalCuratedCount || 24}</p>
+          <span className="text-[11px] text-amber-700 font-semibold">Featured on World Map</span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-bold uppercase text-slate-400">Platform Itineraries</p>
-          <p className="text-2xl font-black text-emerald-600 mt-1">{trips.length + 18}</p>
-          <span className="text-[11px] text-emerald-600 font-semibold">+24% this month</span>
+          <p className="text-[10px] font-bold uppercase text-slate-400">Curator Verified Spots</p>
+          <p className="text-2xl font-black text-emerald-600 mt-1">{totalVerifiedCount || activities.length}</p>
+          <span className="text-[11px] text-emerald-600 font-semibold">Landmarks, Dining &amp; Parks</span>
         </div>
 
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-bold uppercase text-slate-400">Active Global Travelers</p>
-          <p className="text-2xl font-black text-amber-600 mt-1">4,920</p>
-          <span className="text-[11px] text-slate-500 font-semibold">Worldwide Community</span>
+          <p className="text-[10px] font-bold uppercase text-slate-400">Global Traveler Trips</p>
+          <p className="text-2xl font-black text-indigo-600 mt-1">{trips.length + 18}</p>
+          <span className="text-[11px] text-slate-500 font-semibold">4,920 Active Users</span>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-1 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm w-fit">
+      {/* Navigation Tabs */}
+      <div className="flex flex-wrap items-center gap-1.5 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
         {[
+          { id: 'curator', label: '✨ Curator Portal & Spotlights', badge: `${totalCuratedCount || 24} Picks` },
           { id: 'analytics', label: 'Platform Analytics' },
           { id: 'cities', label: `World Cities (${cities.length})` },
           { id: 'activities', label: `Spot Catalog (${activities.length})` },
@@ -195,16 +378,294 @@ export const AdminDashboardView: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === tab.id
-                ? 'bg-slate-900 text-white shadow-sm'
+                ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            {tab.label}
+            <span>{tab.label}</span>
+            {tab.badge && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                activeTab === tab.id ? 'bg-amber-400 text-slate-950' : 'bg-amber-100 text-amber-900'
+              }`}>
+                {tab.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {/* ========================================================================= */}
+      {/* TAB 0: CURATOR PORTAL & SPOTLIGHT STUDIO */}
+      {/* ========================================================================= */}
+      {activeTab === 'curator' && (
+        <div className="space-y-6">
+          {/* Curator Control Center Banner */}
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-stone-50 border border-amber-200/80 rounded-3xl p-6 sm:p-7 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                  Curator Studio Active
+                </span>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
+                  Curated Collections &amp; Verified Highlights
+                </h3>
+                <p className="text-xs text-slate-600 max-w-2xl">
+                  Toggle curator spotlights, assign editorial badges (e.g. Michelin Street Food, Botanical Sanctuaries), and inspect spot ratings across 25+ global cities.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddSpotModal(true)}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4 text-amber-400" />
+                  <span>Curate New Spot</span>
+                </button>
+                <button
+                  onClick={() => setShowAddCity(true)}
+                  className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Globe className="w-4 h-4 text-amber-600" />
+                  <span>+ Destination</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Curated Spotlight Themes */}
+            <div className="pt-2 border-t border-amber-200/60">
+              <p className="text-[11px] font-black uppercase text-amber-900 mb-2.5 flex items-center gap-1.5">
+                <Bookmark className="w-3.5 h-3.5 text-amber-700" />
+                <span>Featured Editorial Tracks</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  {
+                    title: '🏛️ Grand European Heritage',
+                    spots: 'Paris, Rome, London, Prague',
+                    badge: 'History & Art',
+                    bg: 'bg-white',
+                  },
+                  {
+                    title: '🍜 East Asia Night Markets & Tea',
+                    spots: 'Tokyo, Kyoto, Seoul, Singapore',
+                    badge: 'Culinary Masterpieces',
+                    bg: 'bg-white',
+                  },
+                  {
+                    title: '🌿 Secret Botanical Sanctuaries',
+                    spots: 'Kyoto, London, Singapore, Munich',
+                    badge: 'Nature & Parks',
+                    bg: 'bg-white',
+                  },
+                  {
+                    title: '⛰️ Alpine High-Altitude Summits',
+                    spots: 'Interlaken, Banff, Queenstown',
+                    badge: 'Adventure Treks',
+                    bg: 'bg-white',
+                  },
+                ].map((track, i) => (
+                  <div key={i} className={`${track.bg} p-3.5 rounded-2xl border border-amber-200/60 shadow-xs space-y-1`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                        {track.badge}
+                      </span>
+                      <Sparkles className="w-3 h-3 text-amber-600" />
+                    </div>
+                    <h4 className="font-extrabold text-xs text-slate-900">{track.title}</h4>
+                    <p className="text-[10px] text-slate-500 truncate">{track.spots}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Search, Filter & Status Toolbar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={curatorSearch}
+                  onChange={(e) => setCuratorSearch(e.target.value)}
+                  placeholder="Search curated spots, cities, badges (e.g. 'Michelin', 'Landmark', 'Botanical')..."
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Status Filter Toggle (All / Spotlight / Verified) */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 text-xs font-bold">
+                <button
+                  onClick={() => setCuratorStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                    curatorStatusFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All ({activities.length})
+                </button>
+                <button
+                  onClick={() => setCuratorStatusFilter('spotlight')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                    curatorStatusFilter === 'spotlight' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Star className="w-3 h-3" />
+                  <span>Spotlights Only</span>
+                </button>
+                <button
+                  onClick={() => setCuratorStatusFilter('verified')}
+                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                    curatorStatusFilter === 'verified' ? 'bg-emerald-600 text-white font-black shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Verified</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              {['All', 'Sightseeing', 'Food & Dining', 'Nature & Outdoors', 'Culture & Museum', 'Adventure', 'Sports & Stadiums'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCuratorCategoryFilter(cat)}
+                  className={`px-3 py-1 rounded-lg font-bold shrink-0 transition-colors cursor-pointer ${
+                    curatorCategoryFilter === cat
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Curated Spots Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredCuratorActivities.map((act) => {
+              const isSpotlight = !!act.is_curated || !!act.is_featured;
+              const isVerified = !!act.curator_verified;
+
+              return (
+                <div
+                  key={act.id}
+                  className={`bg-white rounded-2xl border transition-all duration-200 p-4 space-y-3.5 shadow-sm flex flex-col justify-between ${
+                    isSpotlight
+                      ? 'border-amber-400 ring-2 ring-amber-100'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div>
+                    {/* Image & Badges */}
+                    <div className="relative h-36 w-full rounded-xl overflow-hidden bg-slate-100 mb-3">
+                      <SafeImage
+                        src={act.image_url}
+                        alt={act.name}
+                        fallbackCategory={act.category}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+
+                      {/* Top Badges */}
+                      <div className="absolute top-2 left-2 flex items-center gap-1">
+                        <span className="bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                          {act.city_name || 'Destination'}
+                        </span>
+                        <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md">
+                          {act.category}
+                        </span>
+                      </div>
+
+                      {/* Status Badges */}
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white text-xs">
+                        <span className="font-extrabold">{act.cost === 0 ? 'Free' : `$${act.cost} USD`}</span>
+                        <span className="text-[10px] font-bold text-amber-200">{act.duration} hrs &bull; {act.best_time_of_day || 'Anytime'}</span>
+                      </div>
+                    </div>
+
+                    {/* Spot Title & Details */}
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-black text-sm text-slate-900 leading-snug line-clamp-1">{act.name}</h4>
+                        <span className="text-[11px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md shrink-0 border border-amber-200/60">
+                          {act.curator_score || 94}/100
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                        {act.description}
+                      </p>
+                    </div>
+
+                    {/* Curator Badge & Notes */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase text-slate-400">Curator Tag</span>
+                        <span className="text-[10px] font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded">
+                          {act.curator_badge || (act.category === 'Food & Dining' ? '🍜 Michelin Street Food' : '⭐ Must-Visit Landmark')}
+                        </span>
+                      </div>
+
+                      {act.curator_notes && (
+                        <p className="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded-lg italic">
+                          &ldquo;{act.curator_notes}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Curator Action Controls */}
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 text-xs">
+                    <button
+                      onClick={() => handleToggleCuratorSpotlight(act)}
+                      className={`flex-1 py-1.5 px-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isSpotlight
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-900'
+                      }`}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${isSpotlight ? 'fill-slate-950' : ''}`} />
+                      <span>{isSpotlight ? 'Spotlighted' : 'Spotlight'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleCuratorVerified(act)}
+                      className={`py-1.5 px-2.5 rounded-xl font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        isVerified
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      }`}
+                      title={isVerified ? 'Verified by Curator' : 'Click to Verify'}
+                    >
+                      <CheckCircle2 className={`w-3.5 h-3.5 ${isVerified ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <span>{isVerified ? 'Verified' : 'Verify'}</span>
+                    </button>
+
+                    {/* Quick Badge changer dropdown */}
+                    <select
+                      value={act.curator_badge || '⭐ Must-Visit Landmark'}
+                      onChange={(e) => handleUpdateCuratorBadge(act, e.target.value)}
+                      className="text-[10px] font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 outline-none cursor-pointer max-w-[110px] truncate"
+                    >
+                      <option value="⭐ Must-Visit Landmark">⭐ Landmark</option>
+                      <option value="🍜 Michelin Street Food">🍜 Dining</option>
+                      <option value="🌿 Secret Botanical Gem">🌿 Garden</option>
+                      <option value="🌅 Sunset Panorama">🌅 Sunset</option>
+                      <option value="🎨 Masterpiece Art">🎨 Museum</option>
+                      <option value="⛰️ Alpine Wonder">⛰️ Summit</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tab 1: Analytics */}
       {activeTab === 'analytics' && (
@@ -323,11 +784,20 @@ export const AdminDashboardView: React.FC = () => {
       {/* Tab 3: Activities */}
       {activeTab === 'activities' && (
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Catalog of Curated Spots</h3>
-            <p className="text-xs text-slate-500">
-              Verified global landmarks, street food spots, and botanical parks
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Catalog of Curated Spots</h3>
+              <p className="text-xs text-slate-500">
+                Verified global landmarks, street food spots, and botanical parks ({activities.length} indexed)
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddSpotModal(true)}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-amber-400" />
+              <span>+ Curated Spot</span>
+            </button>
           </div>
 
           <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto pr-2">
@@ -340,7 +810,14 @@ export const AdminDashboardView: React.FC = () => {
                     className="w-12 h-12 rounded-xl object-cover"
                   />
                   <div>
-                    <h4 className="font-bold text-slate-900 text-sm">{act.name}</h4>
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                      {act.name}
+                      {(act.is_curated || act.is_featured) && (
+                        <span className="text-[9px] font-black bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded">
+                          Spotlight
+                        </span>
+                      )}
+                    </h4>
                     <p className="text-slate-500 text-[11px]">
                       {act.city_name} • {act.category} • {act.duration} hrs
                     </p>
@@ -432,6 +909,222 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Curated Spot */}
+      {showAddSpotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Add Curated Spot to Catalog</h3>
+              </div>
+              <button
+                onClick={() => setShowAddSpotModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCuratedSpot} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold uppercase text-slate-600 mb-1">
+                  Spot / Experience Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={spotName}
+                  onChange={(e) => setSpotName(e.target.value)}
+                  placeholder="e.g. Kyoto Bamboo Grove & Secret Tea House, Seine Sunset Cruise..."
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Destination City *
+                  </label>
+                  <select
+                    value={spotCityId}
+                    onChange={(e) => setSpotCityId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white"
+                  >
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}, {c.country}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={spotCategory}
+                    onChange={(e) => setSpotCategory(e.target.value as ActivityCategory)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white"
+                  >
+                    <option value="Sightseeing">Sightseeing &amp; Landmarks</option>
+                    <option value="Food & Dining">Food &amp; Dining (Michelin / Markets)</option>
+                    <option value="Nature & Outdoors">Nature &amp; Botanical Gardens</option>
+                    <option value="Culture & Museum">Culture &amp; Museums</option>
+                    <option value="Adventure">Adventure &amp; High-Altitude</option>
+                    <option value="Sports & Stadiums">Sports &amp; Stadiums</option>
+                    <option value="Relaxation">Relaxation &amp; Wellness</option>
+                    <option value="Nightlife">Nightlife &amp; Entertainment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Duration (Hours)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    value={spotDuration}
+                    onChange={(e) => setSpotDuration(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Cost ($ USD)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={spotCost}
+                    onChange={(e) => setSpotCost(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Best Time
+                  </label>
+                  <select
+                    value={spotBestTime}
+                    onChange={(e) => setSpotBestTime(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white"
+                  >
+                    <option value="Morning">Morning</option>
+                    <option value="Afternoon">Afternoon</option>
+                    <option value="Sunset">Sunset</option>
+                    <option value="Evening">Evening</option>
+                    <option value="Night">Night</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Anytime">Anytime</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Curator Badge Label
+                  </label>
+                  <select
+                    value={spotCuratorBadge}
+                    onChange={(e) => setSpotCuratorBadge(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 bg-white"
+                  >
+                    <option value="⭐ Must-Visit Landmark">⭐ Must-Visit Landmark</option>
+                    <option value="🍜 Michelin Street Food">🍜 Michelin Street Food</option>
+                    <option value="🌿 Secret Botanical Gem">🌿 Secret Botanical Gem</option>
+                    <option value="🌅 Sunset Panorama">🌅 Sunset Panorama</option>
+                    <option value="🎨 Masterpiece Museum">🎨 Masterpiece Museum</option>
+                    <option value="⛰️ High-Altitude Summit">⛰️ High-Altitude Summit</option>
+                    <option value="🏰 Heritage Fortress">🏰 Heritage Fortress</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-600 mb-1">
+                    Curator Quality Score (1-100)
+                  </label>
+                  <input
+                    type="number"
+                    min="70"
+                    max="100"
+                    value={spotCuratorScore}
+                    onChange={(e) => setSpotCuratorScore(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-600 mb-1">
+                  Spot Image URL
+                </label>
+                <input
+                  type="url"
+                  value={spotImage}
+                  onChange={(e) => setSpotImage(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-600 mb-1">
+                  Description &amp; Highlights
+                </label>
+                <textarea
+                  rows={2}
+                  value={spotDesc}
+                  onChange={(e) => setSpotDesc(e.target.value)}
+                  placeholder="Atmosphere, history, signature dishes or scenic photo points..."
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-600 mb-1">
+                  Curator Editorial Inspection Notes
+                </label>
+                <input
+                  type="text"
+                  value={spotCuratorNotes}
+                  onChange={(e) => setSpotCuratorNotes(e.target.value)}
+                  placeholder="e.g. Arrive before 9am for golden light and empty pavilions..."
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddSpotModal(false)}
+                  className="px-4 py-2 text-xs text-slate-600 hover:text-slate-900 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow-md cursor-pointer"
+                >
+                  Publish to Curator Spotlight
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

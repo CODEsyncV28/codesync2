@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 import { Trip, Expense, ExpenseCategory } from '../types';
 import { tripService } from '../services/tripService';
+import { useCurrency } from '../context/CurrencyContext';
 
 const COLORS = ['#0284c7', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
 
@@ -39,6 +40,7 @@ interface TripBudgetViewProps {
 }
 
 export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNavigate }) => {
+  const { currencySymbol, formatPrice } = useCurrency();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -178,7 +180,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
           <div>
             <h4 className="text-sm font-bold">Planned costs exceed your target budget</h4>
             <p className="text-xs text-rose-700 mt-0.5">
-              Your planned expenses of ${budgetSummary.totalPlanned.toLocaleString('en-US')} exceed your target budget of ${budgetSummary.targetBudget.toLocaleString('en-US')} by ${Math.abs(budgetSummary.variance).toLocaleString('en-US')}. Consider adjusting accommodations or activities in the builder.
+              Your planned expenses of {formatPrice(budgetSummary.totalPlanned)} exceed your target budget of {formatPrice(budgetSummary.targetBudget)} by {formatPrice(Math.abs(budgetSummary.variance))}. Consider adjusting accommodations or activities in the builder.
             </p>
           </div>
         </div>
@@ -191,7 +193,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
             Target Budget
           </p>
           <p className="text-2xl font-black text-slate-900 mt-1">
-            ${budgetSummary.targetBudget.toLocaleString('en-US')}
+            {formatPrice(budgetSummary.targetBudget)}
           </p>
           <span className="text-[11px] text-slate-500 font-medium">Original Goal</span>
         </div>
@@ -201,7 +203,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
             Planned Itinerary
           </p>
           <p className="text-2xl font-black text-sky-600 mt-1">
-            ${budgetSummary.totalPlanned.toLocaleString('en-US')}
+            {formatPrice(budgetSummary.totalPlanned)}
           </p>
           <span className="text-[11px] text-slate-500 font-medium">Stays, Travel, Acts</span>
         </div>
@@ -211,7 +213,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
             Logged Expenses
           </p>
           <p className="text-2xl font-black text-indigo-600 mt-1">
-            ${budgetSummary.totalLoggedExpenses.toLocaleString('en-US')}
+            {formatPrice(budgetSummary.totalLoggedExpenses)}
           </p>
           <span className="text-[11px] text-slate-500 font-medium">
             {trip.expenses?.length || 0} Transactions
@@ -233,10 +235,10 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
               budgetSummary.variance >= 0 ? 'text-emerald-700' : 'text-rose-700'
             }`}
           >
-            ${Math.abs(budgetSummary.variance).toLocaleString('en-US')}
+            {formatPrice(Math.abs(budgetSummary.variance))}
           </p>
           <span className="text-[11px] font-semibold text-slate-600">
-            Avg: ${budgetSummary.dailyAverage.toLocaleString('en-US')}/day
+            Avg: {formatPrice(budgetSummary.dailyAverage)}/day
           </span>
         </div>
       </div>
@@ -271,7 +273,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: any) => [`$${Number(value).toLocaleString('en-US')}`, 'Amount']}
+                  formatter={(value: any) => [formatPrice(Number(value)), 'Amount']}
                 />
                 <Legend />
               </PieChart>
@@ -284,7 +286,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
                 <span className="text-[10px] text-slate-500 uppercase font-semibold block truncate">
                   {item.name}
                 </span>
-                <span className="font-extrabold text-slate-900">${item.value.toLocaleString('en-US')}</span>
+                <span className="font-extrabold text-slate-900">{formatPrice(item.value)}</span>
               </div>
             ))}
           </div>
@@ -306,7 +308,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
               <BarChart data={cityBarData}>
                 <XAxis dataKey="cityName" stroke="#64748b" fontSize={11} />
                 <YAxis stroke="#64748b" fontSize={11} />
-                <Tooltip formatter={(value: any) => [`$${Number(value).toLocaleString('en-US')}`, 'Cost']} />
+                <Tooltip formatter={(value: any) => [formatPrice(Number(value)), 'Cost']} />
                 <Legend />
                 <Bar dataKey="Accommodation" stackId="a" fill="#0284c7" />
                 <Bar dataKey="Transport" stackId="a" fill="#6366f1" />
@@ -359,7 +361,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
               <div key={exp.id} className="py-3 flex items-center justify-between text-xs">
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                    $
+                    {currencySymbol}
                   </div>
                   <div>
                     <p className="font-bold text-slate-900">{exp.description}</p>
@@ -371,7 +373,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
 
                 <div className="flex items-center space-x-3">
                   <span className="font-extrabold text-sm text-slate-900">
-                    ${exp.amount.toLocaleString('en-US')}
+                    {formatPrice(exp.amount)}
                   </span>
                   <button
                     onClick={() => handleDeleteExpense(exp.id)}
@@ -410,7 +412,7 @@ export const TripBudgetView: React.FC<TripBudgetViewProps> = ({ tripId, onNaviga
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                    Amount ($ USD) *
+                    Amount ({currencySymbol}) *
                   </label>
                   <input
                     type="number"

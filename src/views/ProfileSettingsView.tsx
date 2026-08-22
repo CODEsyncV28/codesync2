@@ -18,6 +18,7 @@ import {
   PieChart
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency, SupportedCurrency } from '../context/CurrencyContext';
 import { SEED_CITIES } from '../data/seedData';
 import { City, Trip } from '../types';
 import { tripService } from '../services/tripService';
@@ -32,6 +33,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   onNavigate,
 }) => {
   const { user, updateUserProfile, toggleSaveDestination, logout } = useAuth();
+  const { currency: globalCurrency, setCurrency: setGlobalCurrency, formatPrice } = useCurrency();
 
   const [firstName, setFirstName] = useState(user?.first_name || user?.name?.split(' ')[0] || 'Elena');
   const [lastName, setLastName] = useState(user?.last_name || user?.name?.split(' ').slice(1).join(' ') || 'Rostova');
@@ -41,7 +43,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   const [city, setCity] = useState(user?.city || 'New York');
   const [country, setCountry] = useState(user?.country || 'United States');
   const [additionalInfo, setAdditionalInfo] = useState(user?.additional_info || user?.bio || '');
-  const [currency, setCurrency] = useState(user?.preferred_currency || 'USD');
+  const [currency, setCurrency] = useState(user?.preferred_currency || globalCurrency || 'USD');
   const [homeAirport, setHomeAirport] = useState(user?.home_airport || 'JFK (John F. Kennedy Intl, New York)');
   
   const [isEditing, setIsEditing] = useState(false);
@@ -60,6 +62,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim() || user?.name || 'Traveler';
+    setGlobalCurrency(currency);
     await updateUserProfile({
       name: fullName,
       display_name: fullName,
@@ -239,7 +242,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-black tracking-tight text-white">
-                          ${budget.totalActual.toLocaleString()}
+                          {formatPrice(budget.totalActual)}
                         </div>
                         <div className="text-[10px] text-white/40 uppercase font-bold tracking-widest">
                           Total Cost
@@ -250,19 +253,19 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
                     <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
                       <div className="flex flex-col">
                         <span className="text-white/40 mb-0.5">Accommodation</span>
-                        <span className="font-semibold text-white/90">${budget.categories.stay.toLocaleString()}</span>
+                        <span className="font-semibold text-white/90">{formatPrice(budget.categories.stay)}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-white/40 mb-0.5">Transportation</span>
-                        <span className="font-semibold text-white/90">${budget.categories.transport.toLocaleString()}</span>
+                        <span className="font-semibold text-white/90">{formatPrice(budget.categories.transport)}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-white/40 mb-0.5">Activities & Tours</span>
-                        <span className="font-semibold text-white/90">${budget.categories.activities.toLocaleString()}</span>
+                        <span className="font-semibold text-white/90">{formatPrice(budget.categories.activities)}</span>
                       </div>
                       <div className="flex flex-col">
                         <span className="text-white/40 mb-0.5">Logged Expenses</span>
-                        <span className="font-semibold text-white/90">${budget.totalLoggedExpenses.toLocaleString()}</span>
+                        <span className="font-semibold text-white/90">{formatPrice(budget.totalLoggedExpenses)}</span>
                       </div>
                     </div>
                     
@@ -270,10 +273,10 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
                       <div className={`mt-2 p-2 rounded-lg text-xs font-bold flex items-center justify-between ${isOver ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
                         <div className="flex items-center gap-1.5">
                           {isOver ? <TrendingUp className="w-3.5 h-3.5" /> : <PieChart className="w-3.5 h-3.5" />}
-                          <span>Target: ${budget.targetBudget.toLocaleString()}</span>
+                          <span>Target: {formatPrice(budget.targetBudget)}</span>
                         </div>
                         <span>
-                          {isOver ? `+$${budget.overBudgetAmount.toLocaleString()} Over` : `-$${Math.abs(budget.variance).toLocaleString()} Under`}
+                          {isOver ? `+${formatPrice(budget.overBudgetAmount)} Over` : `-${formatPrice(Math.abs(budget.variance))} Under`}
                         </span>
                       </div>
                     )}
