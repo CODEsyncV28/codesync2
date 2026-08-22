@@ -4,6 +4,7 @@ import { City, Activity, Trip } from '../../types';
 import { cityService } from '../../services/cityService';
 import { tripService } from '../../services/tripService';
 import { useAuth } from '../../context/AuthContext';
+import { SafeImage } from '../SafeImage';
 
 interface CityDetailModalProps {
   city: City | null;
@@ -50,9 +51,10 @@ export const CityDetailModal: React.FC<CityDetailModalProps> = ({
       <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Cover Photo Header */}
         <div className="relative h-64 w-full">
-          <img
+          <SafeImage
             src={city.image_url}
             alt={city.name}
+            fallbackCategory="Sightseeing"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
@@ -157,9 +159,10 @@ export const CityDetailModal: React.FC<CityDetailModalProps> = ({
                     className="p-2.5 rounded-xl border border-slate-200 flex items-center justify-between hover:bg-slate-50 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <img
+                      <SafeImage
                         src={act.image_url}
                         alt={act.name}
+                        fallbackCategory={act.category}
                         className="w-12 h-12 rounded-lg object-cover"
                       />
                       <div>

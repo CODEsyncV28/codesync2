@@ -13,6 +13,7 @@ import {
 import { City, Continent } from '../types';
 import { cityService } from '../services/cityService';
 import { useAuth } from '../context/AuthContext';
+import { SafeImage } from '../components/SafeImage';
 
 interface CitySearchViewProps {
   onOpenCityDetail: (city: City) => void;
@@ -189,9 +190,10 @@ export const CitySearchView: React.FC<CitySearchViewProps> = ({
                 <div>
                   {/* Photo Header */}
                   <div className="relative h-48 w-full overflow-hidden bg-slate-100">
-                    <img
+                    <SafeImage
                       src={city.image_url}
                       alt={city.name}
+                      fallbackCategory="Sightseeing"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />

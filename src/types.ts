@@ -72,6 +72,7 @@ export interface User {
   travel_interests?: string[];
   role?: 'user' | 'traveler' | 'admin';
   is_admin?: boolean;
+  registration_completed?: boolean;
   saved_destinations?: string[]; // City IDs
   created_at: string;
   bio?: string;
@@ -191,6 +192,33 @@ export interface TripExpense {
 
 export type Expense = TripExpense;
 
+export interface SectionPlaceSpot {
+  id: string;
+  name: string;
+  category?: 'landmark' | 'museum' | 'restaurant' | 'park' | 'shopping' | 'attraction' | 'viewpoint' | 'other';
+  time?: string;
+  duration?: number;
+  cost?: number;
+  notes?: string;
+  location?: string;
+  image_url?: string;
+  visited?: boolean;
+}
+
+export interface TripSection {
+  id: string;
+  trip_id?: string;
+  title: string;
+  type?: 'travel' | 'stay' | 'activity' | 'dining' | 'general';
+  description: string;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  location?: string;
+  status?: 'planned' | 'booked' | 'completed';
+  places?: SectionPlaceSpot[];
+}
+
 export interface TripCollaborator {
   user_id: string;
   email?: string;
@@ -219,6 +247,7 @@ export interface Trip {
   created_at: string;
   updated_at?: string;
   stops?: TripStop[];
+  sections?: TripSection[];
   expenses?: TripExpense[];
   views_count?: number;
   cloned_from_id?: string;

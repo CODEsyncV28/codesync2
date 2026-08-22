@@ -14,6 +14,7 @@ import {
 import { Trip } from '../types';
 import { tripService } from '../services/tripService';
 import { useAuth } from '../context/AuthContext';
+import { SafeImage } from '../components/SafeImage';
 
 interface SharedItineraryViewProps {
   tripId: string;
@@ -132,9 +133,10 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
       {/* Hero Visual Card */}
       <div className="relative rounded-3xl overflow-hidden bg-slate-900 text-white shadow-xl">
         <div className="absolute inset-0 z-0">
-          <img
+          <SafeImage
             src={trip.cover_photo}
             alt={trip.name}
+            fallbackCategory="Sightseeing"
             className="w-full h-full object-cover opacity-40 filter brightness-90"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent" />
@@ -185,9 +187,10 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
                 {index + 1}
               </div>
               {stop.city_photo && (
-                <img
+                <SafeImage
                   src={stop.city_photo}
                   alt={stop.city_name}
+                  fallbackCategory="Sightseeing"
                   className="w-16 h-16 rounded-2xl object-cover"
                 />
               )}
@@ -213,9 +216,10 @@ export const SharedItineraryView: React.FC<SharedItineraryViewProps> = ({
                 >
                   <div className="flex items-center space-x-3">
                     {act.image_url && (
-                      <img
+                      <SafeImage
                         src={act.image_url}
                         alt={act.name}
+                        fallbackCategory={act.category}
                         className="w-10 h-10 rounded-lg object-cover"
                       />
                     )}

@@ -178,22 +178,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden sm:inline">Plan Trip</span>
             </button>
 
-            {/* Profile / Demo Login dropdown */}
+            {/* Circular Profile Avatar (Screen 3, 4, 5 Wireframe) */}
             {user ? (
               <div className="relative">
                 <button
                   id="user-profile-menu-btn"
                   onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-all cursor-pointer"
+                  aria-label="User Profile Menu"
+                  className="w-10 h-10 rounded-full border-2 border-slate-200 hover:border-amber-500 overflow-hidden shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center bg-slate-100 ring-2 ring-transparent hover:ring-amber-200"
                 >
                   <img
                     src={user.photo_url || user.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
                     alt={user.display_name || user.name || 'User'}
-                    className="w-6 h-6 rounded-full object-cover border border-amber-500/50"
+                    className="w-full h-full object-cover"
                   />
-                  <span className="max-w-[90px] truncate hidden sm:inline">
-                    {user.display_name || user.name || 'Traveler'}
-                  </span>
                 </button>
 
                 {profileOpen && (

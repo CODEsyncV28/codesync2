@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, Calendar, Tag, Image as ImageIcon, Sparkles, Utensils, Flower2, CheckCircle2 } from 'lucide-react';
 import { Activity, ActivityCategory, TripActivity, TripStop } from '../../types';
 import { cityService } from '../../services/cityService';
+import { SafeImage } from '../SafeImage';
 
 const CATEGORIES: ActivityCategory[] = [
   'Sightseeing',
@@ -247,9 +248,10 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
-                      <img
+                      <SafeImage
                         src={act.image_url}
                         alt={act.name}
+                        fallbackCategory={act.category}
                         className="w-14 h-14 rounded-xl object-cover shrink-0"
                       />
                       <div className="flex-1 min-w-0">

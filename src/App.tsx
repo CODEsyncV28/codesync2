@@ -61,8 +61,9 @@ function MainApp() {
     );
   }
 
-  // Strict Authentication Gate: If not logged in, render the dedicated Login / Sign-In page
-  if (!user) {
+  // Strict Authentication & Registration Gate:
+  // After login it is compulsory to finish registration before opening the app
+  if (!user || !user.registration_completed) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/50 text-slate-100 flex flex-col justify-between p-4 sm:p-6 lg:p-8">
         <header className="max-w-5xl w-full mx-auto flex items-center justify-between py-2">

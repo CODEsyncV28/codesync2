@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Trip, TripStop, TripActivity } from '../types';
 import { tripService } from '../services/tripService';
+import { SafeImage } from '../components/SafeImage';
 
 interface ItineraryViewProps {
   tripId: string;
@@ -341,9 +342,10 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                               )}
 
                               {act.image_url && (
-                                <img
+                                <SafeImage
                                   src={act.image_url}
                                   alt={act.name}
+                                  fallbackCategory={act.category}
                                   className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
                                 />
                               )}
@@ -400,9 +402,10 @@ export const ItineraryView: React.FC<ItineraryViewProps> = ({
                   {idx + 1}
                 </div>
                 {stop.city_photo && (
-                  <img
+                  <SafeImage
                     src={stop.city_photo}
                     alt={stop.city_name}
+                    fallbackCategory="Sightseeing"
                     className="w-16 h-16 rounded-2xl object-cover"
                   />
                 )}

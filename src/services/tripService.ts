@@ -1,4 +1,4 @@
-import { Trip, TripStop, TripActivity, TripExpense, BudgetSummary } from '../types';
+import { Trip, TripStop, TripActivity, TripExpense, TripSection, BudgetSummary } from '../types';
 import { db } from '../firebase';
 import {
   collection,
@@ -524,5 +524,43 @@ export const tripService = {
       isOverBudget,
       overBudgetAmount,
     };
+  },
+
+  async addSection(tripId: string, sectionData: Omit<TripSection, 'id' | 'trip_id'>): Promise<Trip> {
+    const trip = await this.getTripById(tripId);
+    if (!trip) throw new Error('Trip not found');
+
+    const newSection: TripSection = {
+      ...sectionData,
+      id: `sec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      trip_id: tripId,
+    };
+
+    const currentSections = trip.sections && trip.sections.length > 0 ? trip.sections : [];
+    const updatedSections = [...currentSections, newSection];
+
+    return this.updateTrip(tripId, { sections: updatedSections });
+  },
+
+  async updateSection(tripId: string, sectionId: string, updates: Partial<TripSection>): Promise<Trip> {
+    const trip = await this.getTripById(tripId);
+    if (!trip) throw new Error('Trip not found');
+
+    const currentSections = trip.sections || [];
+    const updatedSections = currentSections.map((sec) =>
+      sec.id === sectionId ? { ...sec, ...updates } : sec
+    );
+
+    return this.updateTrip(tripId, { sections: updatedSections });
+  },
+
+  async deleteSection(tripId: string, sectionId: string): Promise<Trip> {
+    const trip = await this.getTripById(tripId);
+    if (!trip) throw new Error('Trip not found');
+
+    const currentSections = trip.sections || [];
+    const updatedSections = currentSections.filter((sec) => sec.id !== sectionId);
+
+    return this.updateTrip(tripId, { sections: updatedSections });
   },
 };

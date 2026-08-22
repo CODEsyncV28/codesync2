@@ -17,6 +17,7 @@ import { Activity, ActivityCategory, Trip, City } from '../types';
 import { cityService } from '../services/cityService';
 import { tripService } from '../services/tripService';
 import { useAuth } from '../context/AuthContext';
+import { SafeImage } from '../components/SafeImage';
 
 const CATEGORIES: (ActivityCategory | 'All')[] = [
   'All',
@@ -298,9 +299,10 @@ export const ActivitySearchView: React.FC<ActivitySearchViewProps> = ({
               >
                 <div>
                   <div className="relative h-44 w-full overflow-hidden bg-slate-100">
-                    <img
+                    <SafeImage
                       src={act.image_url}
                       alt={act.name}
+                      fallbackCategory={act.category}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />

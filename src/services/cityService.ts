@@ -111,19 +111,74 @@ export const cityService = {
     sortBy?: 'popularity' | 'cost_asc' | 'cost_desc' | 'name';
   }): Promise<City[]> {
     let cities = await this.getAllCities();
+    const allActivities = await this.getAllActivities();
 
     if (params.query && params.query.trim()) {
-      const q = params.query.toLowerCase().trim();
-      cities = cities.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.country.toLowerCase().includes(q) ||
-          (c.continent && c.continent.toLowerCase().includes(q)) ||
-          c.region.toLowerCase().includes(q) ||
-          (c.tagline && c.tagline.toLowerCase().includes(q)) ||
-          (c.tags && c.tags.some((t) => t.toLowerCase().includes(q))) ||
-          c.description.toLowerCase().includes(q)
-      );
+      const rawQ = params.query.toLowerCase().trim();
+      
+      // Tokenize and clean query
+      const cleanTokens = rawQ
+        .replace(/[,&+/]/g, ' and ')
+        .split(/\s+/)
+        .filter((t) => !['in', 'at', 'the', 'of', 'for', 'to', 'on', 'with'].includes(t));
+
+      // Check for compound places like "maldives and bali" or "mountains"
+      const mentionsAdv = rawQ.includes('adv') || rawQ.includes('adventure') || rawQ.includes('sport');
+      const mentionsMountain = rawQ.includes('mountain') || rawQ.includes('alps') || rawQ.includes('himalaya') || rawQ.includes('rockies') || rawQ.includes('peak');
+      const mentionsWaterSports = rawQ.includes('water sport') || rawQ.includes('water') || rawQ.includes('scuba') || rawQ.includes('div') || rawQ.includes('surf') || rawQ.includes('ocean') || rawQ.includes('beach') || rawQ.includes('snorkel');
+      const mentionsParagliding = rawQ.includes('paraglid') || rawQ.includes('hang glid');
+
+      cities = cities.filter((c) => {
+        const cityText = `${c.name} ${c.country} ${c.continent || ''} ${c.region || ''} ${c.tagline || ''} ${c.tags?.join(' ') || ''} ${c.description || ''}`.toLowerCase();
+        
+        // Direct full string match
+        if (cityText.includes(rawQ)) return true;
+
+        // Semantic mountain adventure matching
+        if (mentionsMountain && mentionsAdv) {
+          if (
+            ['city-interlaken', 'city-queenstown', 'city-banff', 'city-pokhara', 'city-reykjavik', 'city-cusco', 'city-vancouver', 'city-munich'].includes(c.id) ||
+            cityText.includes('mountain') ||
+            cityText.includes('alps') ||
+            cityText.includes('rockies') ||
+            cityText.includes('himalaya')
+          ) {
+            return true;
+          }
+        }
+
+        // Semantic water sports matching
+        if (mentionsWaterSports) {
+          const hasWaterTag = c.tags?.some((t) => ['Water Sports', 'Scuba Diving', 'Surfing', 'Beaches', 'Ocean', 'Snorkeling', 'Marine Life'].some((w) => t.toLowerCase().includes(w.toLowerCase())));
+          const isTargetIsland = ['city-maldives', 'city-bali', 'city-sydney', 'city-rio', 'city-barcelona', 'city-capetown'].includes(c.id);
+          
+          // If query specifically mentions places (like "maldives and bali")
+          const mentionsThisCity = rawQ.includes(c.name.toLowerCase().split(' ')[0]) || rawQ.includes(c.country.toLowerCase());
+          if (mentionsThisCity && (hasWaterTag || isTargetIsland || cityText.includes('beach') || cityText.includes('ocean') || cityText.includes('lagoon') || cityText.includes('surf'))) {
+            return true;
+          }
+          if (rawQ.includes('water') && (hasWaterTag || isTargetIsland)) {
+            return true;
+          }
+        }
+
+        // Semantic paragliding matching
+        if (mentionsParagliding && (['city-pokhara', 'city-interlaken', 'city-queenstown', 'city-capetown'].includes(c.id) || cityText.includes('paraglid'))) {
+          return true;
+        }
+
+        // Check if any token matches
+        const tokenMatch = cleanTokens.some((token) => token.length > 2 && cityText.includes(token));
+        if (tokenMatch) return true;
+
+        // Check if city's activities match the query
+        const cityActs = allActivities.filter((a) => a.city_id === c.id);
+        const actMatch = cityActs.some((a) => {
+          const actText = `${a.name} ${a.description} ${a.category} ${a.location_name || ''}`.toLowerCase();
+          return actText.includes(rawQ) || cleanTokens.some((token) => token.length > 3 && actText.includes(token));
+        });
+        return actMatch;
+      });
     }
 
     if (params.continent && params.continent !== 'All') {
@@ -225,14 +280,56 @@ export const cityService = {
     }
 
     if (params.query && params.query.trim()) {
-      const q = params.query.toLowerCase().trim();
-      activities = activities.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) ||
-          a.description.toLowerCase().includes(q) ||
-          (a.city_name && a.city_name.toLowerCase().includes(q)) ||
-          (a.location_name && a.location_name.toLowerCase().includes(q))
-      );
+      const rawQ = params.query.toLowerCase().trim();
+      const cleanTokens = rawQ
+        .replace(/[,&+/]/g, ' and ')
+        .split(/\s+/)
+        .filter((t) => !['in', 'at', 'the', 'of', 'for', 'to', 'on', 'with'].includes(t));
+
+      const mentionsAdv = rawQ.includes('adv') || rawQ.includes('adventure') || rawQ.includes('sport');
+      const mentionsMountain = rawQ.includes('mountain') || rawQ.includes('alps') || rawQ.includes('himalaya') || rawQ.includes('rockies') || rawQ.includes('peak') || rawQ.includes('altitude');
+      const mentionsWaterSports = rawQ.includes('water sport') || rawQ.includes('water') || rawQ.includes('scuba') || rawQ.includes('div') || rawQ.includes('surf') || rawQ.includes('ocean') || rawQ.includes('beach') || rawQ.includes('snorkel') || rawQ.includes('jet ski');
+      const mentionsParagliding = rawQ.includes('paraglid') || rawQ.includes('hang glid');
+
+      activities = activities.filter((a) => {
+        const actText = `${a.name} ${a.description} ${a.category} ${a.city_name || ''} ${a.location_name || ''}`.toLowerCase();
+        
+        // Direct match
+        if (actText.includes(rawQ)) return true;
+
+        // Mountain adventure matching
+        if (mentionsMountain && mentionsAdv) {
+          if (
+            (a.is_adventure || a.category === 'Adventure' || actText.includes('trek') || actText.includes('hike') || actText.includes('paraglid') || actText.includes('glacier') || actText.includes('ski') || actText.includes('skydiv') || actText.includes('bungee')) &&
+            (['city-interlaken', 'city-queenstown', 'city-banff', 'city-pokhara', 'city-reykjavik', 'city-cusco', 'city-vancouver'].includes(a.city_id) || actText.includes('mountain') || actText.includes('alp') || actText.includes('glacier') || actText.includes('rockies') || actText.includes('himalaya'))
+          ) {
+            return true;
+          }
+        }
+
+        // Water sports matching
+        if (mentionsWaterSports) {
+          const isWaterActivity = a.is_adventure || actText.includes('scuba') || actText.includes('div') || actText.includes('surf') || actText.includes('snorkel') || actText.includes('jet ski') || actText.includes('lagoon') || actText.includes('raft') || actText.includes('kayak') || actText.includes('boat') || actText.includes('sailing') || actText.includes('dolphin');
+          
+          if (rawQ.includes('maldives') && rawQ.includes('bali')) {
+            if (['city-maldives', 'city-bali'].includes(a.city_id) && isWaterActivity) return true;
+          } else if (rawQ.includes('maldives')) {
+            if (a.city_id === 'city-maldives' && isWaterActivity) return true;
+          } else if (rawQ.includes('bali')) {
+            if (a.city_id === 'city-bali' && isWaterActivity) return true;
+          } else if (isWaterActivity && (['city-maldives', 'city-bali', 'city-sydney', 'city-rio', 'city-barcelona', 'city-capetown'].includes(a.city_id) || actText.includes('water'))) {
+            return true;
+          }
+        }
+
+        // Paragliding matching
+        if (mentionsParagliding && (actText.includes('paraglid') || actText.includes('glid') || ['act-pok-1', 'act-intl-1', 'act-qt-2'].includes(a.id))) {
+          return true;
+        }
+
+        // Token match
+        return cleanTokens.some((token) => token.length > 2 && actText.includes(token));
+      });
     }
 
     if (params.maxCost !== undefined) {

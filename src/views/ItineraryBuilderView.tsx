@@ -1,41 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   MapPin,
   Calendar,
   DollarSign,
-  PlusCircle,
+  Plus,
   Trash2,
   Edit3,
   ArrowUp,
   ArrowDown,
   Plane,
-  Train,
-  Bus,
-  Car,
-  Clock,
-  CheckCircle,
-  Circle,
-  Eye,
+  Building2,
+  Compass,
+  Utensils,
   Share2,
   Sparkles,
   ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  ListFilter,
+  CheckCircle2,
+  Clock,
   Layers,
-  Utensils,
-  Flower2,
-  Compass,
   Save,
   Check,
-  BookmarkCheck,
+  X,
+  FileText,
+  Copy,
+  Printer,
+  ChevronRight,
+  Landmark,
+  Trees,
+  ShoppingBag,
+  Eye,
+  CheckSquare,
+  Square,
+  Search,
+  Camera,
+  Info,
+  PartyPopper,
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { Trip, TripStop, TripActivity } from '../types';
+import { Trip, TripSection, SectionPlaceSpot, TripStop, TripActivity } from '../types';
 import { tripService } from '../services/tripService';
-import { AddStopModal } from '../components/modals/AddStopModal';
-import { AddActivityModal } from '../components/modals/AddActivityModal';
+import { SEED_ACTIVITIES } from '../data/seedData';
 
 interface ItineraryBuilderViewProps {
   tripId: string;
@@ -50,27 +55,151 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
 }) => {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
-  const [builderTab, setBuilderTab] = useState<'daywise' | 'stops'>('daywise');
-  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const [sections, setSections] = useState<TripSection[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isConfirmedSuccessModalOpen, setIsConfirmedSuccessModalOpen] = useState(false);
 
-  // Stop modal state
-  const [isAddStopOpen, setIsAddStopOpen] = useState(false);
-  const [editingStop, setEditingStop] = useState<TripStop | undefined>(undefined);
+  // Edit / Add section modal state
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<TripSection | null>(null);
 
-  // Activity modal state
-  const [activeStopForActivity, setActiveStopForActivity] = useState<TripStop | null>(null);
-  const [editingActivity, setEditingActivity] = useState<TripActivity | undefined>(undefined);
-  const [targetActivityDate, setTargetActivityDate] = useState<string | undefined>(undefined);
+  // Form states for Section Modal
+  const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formStartDate, setFormStartDate] = useState('');
+  const [formEndDate, setFormEndDate] = useState('');
+  const [formBudget, setFormBudget] = useState<number>(500);
+  const [formType, setFormType] = useState<'travel' | 'stay' | 'activity' | 'dining' | 'general'>('activity');
+  const [formLocation, setFormLocation] = useState('');
+
+  // States for Add / Edit Place & Spot Modal in a Day Section
+  const [isAddSpotModalOpen, setIsAddSpotModalOpen] = useState(false);
+  const [targetSectionIdForSpot, setTargetSectionIdForSpot] = useState<string | null>(null);
+  const [editingSpot, setEditingSpot] = useState<SectionPlaceSpot | null>(null);
+
+  // Place & Spot Form fields
+  const [spotName, setSpotName] = useState('');
+  const [spotCategory, setSpotCategory] = useState<SectionPlaceSpot['category']>('landmark');
+  const [spotTime, setSpotTime] = useState('10:00 AM');
+  const [spotDuration, setSpotDuration] = useState<number>(2);
+  const [spotCost, setSpotCost] = useState<number>(25);
+  const [spotLocation, setSpotLocation] = useState('');
+  const [spotNotes, setSpotNotes] = useState('');
+  const [spotSearchQuery, setSpotSearchQuery] = useState('');
 
   const loadTrip = async () => {
     setLoading(true);
     try {
       const data = await tripService.getTripById(tripId);
-      setTrip(data);
+      if (data) {
+        setTrip(data);
+        if (data.sections && data.sections.length > 0) {
+          setSections(data.sections);
+        } else {
+          // Initialize default 3 sections with places
+          const start = data.start_date || new Date().toISOString().split('T')[0];
+          const end = data.end_date || new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
+          const cityName = data.stops && data.stops[0] ? data.stops[0].city_name : 'Global Destination';
+
+          const initialSections: TripSection[] = [
+            {
+              id: `sec-${Date.now()}-1`,
+              trip_id: data.id,
+              title: `Section 1: Travel & Accommodation (${cityName})`,
+              type: 'travel',
+              description:
+                'All the necessary information about this section. Travel arrival, check-in at central accommodation, and neighborhood orientation.',
+              start_date: start,
+              end_date: start,
+              budget: 650,
+              location: cityName,
+              status: 'planned',
+              places: [
+                {
+                  id: `spot-${Date.now()}-1`,
+                  name: `Check-in & Neighborhood Welcome Walk`,
+                  category: 'landmark',
+                  time: '02:00 PM',
+                  duration: 2,
+                  cost: 50,
+                  location: `${cityName} Center`,
+                  notes: 'Settle luggage, exchange local currency, and stroll through the main square.',
+                  visited: false,
+                },
+              ],
+            },
+            {
+              id: `sec-${Date.now()}-2`,
+              trip_id: data.id,
+              title: `Section 2: Cultural Exploration & City Sights`,
+              type: 'activity',
+              description:
+                'All the necessary information about this section. Exploring iconic highlights, guided walking tours, and cultural treasures.',
+              start_date: start,
+              end_date: end,
+              budget: 450,
+              location: `${cityName} Center`,
+              status: 'planned',
+              places: [
+                {
+                  id: `spot-${Date.now()}-2`,
+                  name: `${cityName} Historic Old Town & Landmark Tour`,
+                  category: 'landmark',
+                  time: '10:00 AM',
+                  duration: 3,
+                  cost: 25,
+                  location: `${cityName} Heritage District`,
+                  notes: 'Guided audio walk covering the main historic architecture and towers.',
+                  visited: false,
+                },
+                {
+                  id: `spot-${Date.now()}-3`,
+                  name: `National Art & Cultural Museum`,
+                  category: 'museum',
+                  time: '02:30 PM',
+                  duration: 2.5,
+                  cost: 20,
+                  location: `${cityName} Cultural Quarter`,
+                  notes: 'Fast-track entry to classical collections and rotating exhibitions.',
+                  visited: false,
+                },
+              ],
+            },
+            {
+              id: `sec-${Date.now()}-3`,
+              trip_id: data.id,
+              title: `Section 3: Dining Experiences & Regional Highlights`,
+              type: 'dining',
+              description:
+                'All the necessary information about this section. Local gastronomy, authentic food markets, and evening scenic viewpoints.',
+              start_date: end,
+              end_date: end,
+              budget: 500,
+              location: `${cityName} District`,
+              status: 'planned',
+              places: [
+                {
+                  id: `spot-${Date.now()}-4`,
+                  name: `Traditional Culinary Tasting & Night Market`,
+                  category: 'restaurant',
+                  time: '07:00 PM',
+                  duration: 2,
+                  cost: 45,
+                  location: `${cityName} Market Area`,
+                  notes: 'Taste 5 distinct authentic regional delicacies paired with local wine.',
+                  visited: false,
+                },
+              ],
+            },
+          ];
+          setSections(initialSections);
+          tripService.updateTrip(data.id, { sections: initialSections });
+        }
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Error loading trip in builder:', err);
     } finally {
       setLoading(false);
     }
@@ -80,32 +209,361 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
     loadTrip();
   }, [tripId]);
 
-  const handleSaveTripToMyTrips = async () => {
+  // Section Management
+  const handleOpenAddSection = () => {
+    setEditingSection(null);
+    setFormTitle(`Section ${sections.length + 1}: `);
+    setFormDescription(
+      'All the necessary information about this section. This can be anything like travel section, hotel or any other activity.'
+    );
+    setFormStartDate(trip?.start_date || new Date().toISOString().split('T')[0]);
+    setFormEndDate(trip?.end_date || new Date().toISOString().split('T')[0]);
+    setFormBudget(400);
+    setFormType('activity');
+    setFormLocation(trip?.stops?.[0]?.city_name || 'City Center');
+    setIsAddSectionModalOpen(true);
+  };
+
+  const handleOpenEditSection = (sec: TripSection) => {
+    setEditingSection(sec);
+    setFormTitle(sec.title);
+    setFormDescription(sec.description);
+    setFormStartDate(sec.start_date);
+    setFormEndDate(sec.end_date);
+    setFormBudget(sec.budget);
+    setFormType(sec.type || 'general');
+    setFormLocation(sec.location || '');
+    setIsAddSectionModalOpen(true);
+  };
+
+  const handleSaveSectionForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trip || !formTitle.trim()) return;
+
+    let updatedSections: TripSection[] = [];
+    if (editingSection) {
+      updatedSections = sections.map((s) =>
+        s.id === editingSection.id
+          ? {
+              ...s,
+              title: formTitle.trim(),
+              description: formDescription.trim(),
+              start_date: formStartDate,
+              end_date: formEndDate,
+              budget: Number(formBudget) || 0,
+              type: formType,
+              location: formLocation.trim(),
+            }
+          : s
+      );
+    } else {
+      const newSec: TripSection = {
+        id: `sec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        trip_id: trip.id,
+        title: formTitle.trim(),
+        description: formDescription.trim(),
+        start_date: formStartDate,
+        end_date: formEndDate,
+        budget: Number(formBudget) || 0,
+        type: formType,
+        location: formLocation.trim(),
+        status: 'planned',
+        places: [],
+      };
+      updatedSections = [...sections, newSec];
+    }
+
+    setSections(updatedSections);
+    setIsAddSectionModalOpen(false);
+
+    try {
+      await tripService.updateTrip(trip.id, { sections: updatedSections });
+    } catch (err) {
+      console.error('Failed to update trip sections:', err);
+    }
+  };
+
+  const handleDeleteSection = async (sectionId: string) => {
+    if (!trip) return;
+    const updated = sections.filter((s) => s.id !== sectionId);
+    setSections(updated);
+    try {
+      await tripService.updateTrip(trip.id, { sections: updated });
+    } catch (err) {
+      console.error('Failed to delete section:', err);
+    }
+  };
+
+  const handleMoveSection = async (index: number, direction: 'up' | 'down') => {
+    if (!trip) return;
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= sections.length) return;
+
+    const newSections = [...sections];
+    const temp = newSections[index];
+    newSections[index] = newSections[targetIdx];
+    newSections[targetIdx] = temp;
+
+    setSections(newSections);
+    try {
+      await tripService.updateTrip(trip.id, { sections: newSections });
+    } catch (err) {
+      console.error('Failed to reorder sections:', err);
+    }
+  };
+
+  // Spot / Place Management within a specific Day Section
+  const handleOpenAddSpot = (sectionId: string) => {
+    const sec = sections.find((s) => s.id === sectionId);
+    setTargetSectionIdForSpot(sectionId);
+    setEditingSpot(null);
+    setSpotName('');
+    setSpotCategory(sec?.type === 'dining' ? 'restaurant' : sec?.type === 'travel' ? 'landmark' : 'landmark');
+    setSpotTime('10:00 AM');
+    setSpotDuration(2);
+    setSpotCost(25);
+    setSpotLocation(sec?.location || trip?.stops?.[0]?.city_name || '');
+    setSpotNotes('');
+    setSpotSearchQuery('');
+    setIsAddSpotModalOpen(true);
+  };
+
+  const handleOpenEditSpot = (sectionId: string, spot: SectionPlaceSpot) => {
+    setTargetSectionIdForSpot(sectionId);
+    setEditingSpot(spot);
+    setSpotName(spot.name);
+    setSpotCategory(spot.category || 'landmark');
+    setSpotTime(spot.time || '10:00 AM');
+    setSpotDuration(spot.duration || 2);
+    setSpotCost(spot.cost || 0);
+    setSpotLocation(spot.location || '');
+    setSpotNotes(spot.notes || '');
+    setSpotSearchQuery('');
+    setIsAddSpotModalOpen(true);
+  };
+
+  const handleSaveSpot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trip || !targetSectionIdForSpot || !spotName.trim()) return;
+
+    const updatedSections = sections.map((sec) => {
+      if (sec.id !== targetSectionIdForSpot) return sec;
+
+      const currentPlaces = sec.places || [];
+      let nextPlaces: SectionPlaceSpot[] = [];
+
+      if (editingSpot) {
+        nextPlaces = currentPlaces.map((p) =>
+          p.id === editingSpot.id
+            ? {
+                ...p,
+                name: spotName.trim(),
+                category: spotCategory,
+                time: spotTime.trim(),
+                duration: Number(spotDuration) || 1,
+                cost: Number(spotCost) || 0,
+                location: spotLocation.trim(),
+                notes: spotNotes.trim(),
+              }
+            : p
+        );
+      } else {
+        const newSpot: SectionPlaceSpot = {
+          id: `spot-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: spotName.trim(),
+          category: spotCategory,
+          time: spotTime.trim(),
+          duration: Number(spotDuration) || 1,
+          cost: Number(spotCost) || 0,
+          location: spotLocation.trim(),
+          notes: spotNotes.trim(),
+          visited: false,
+        };
+        nextPlaces = [...currentPlaces, newSpot];
+      }
+
+      return {
+        ...sec,
+        places: nextPlaces,
+      };
+    });
+
+    setSections(updatedSections);
+    setIsAddSpotModalOpen(false);
+
+    try {
+      await tripService.updateTrip(trip.id, { sections: updatedSections });
+    } catch (err) {
+      console.error('Failed to save spot:', err);
+    }
+  };
+
+  const handleDeleteSpot = async (sectionId: string, spotId: string) => {
+    if (!trip) return;
+    const updatedSections = sections.map((sec) => {
+      if (sec.id !== sectionId) return sec;
+      return {
+        ...sec,
+        places: (sec.places || []).filter((p) => p.id !== spotId),
+      };
+    });
+
+    setSections(updatedSections);
+    try {
+      await tripService.updateTrip(trip.id, { sections: updatedSections });
+    } catch (err) {
+      console.error('Failed to delete spot:', err);
+    }
+  };
+
+  const handleToggleSpotVisited = async (sectionId: string, spotId: string) => {
+    if (!trip) return;
+    const updatedSections = sections.map((sec) => {
+      if (sec.id !== sectionId) return sec;
+      return {
+        ...sec,
+        places: (sec.places || []).map((p) =>
+          p.id === spotId ? { ...p, visited: !p.visited } : p
+        ),
+      };
+    });
+
+    setSections(updatedSections);
+    try {
+      await tripService.updateTrip(trip.id, { sections: updatedSections });
+    } catch (err) {
+      console.error('Failed to toggle spot:', err);
+    }
+  };
+
+  // Filter curated suggestions for the active place search
+  const spotSuggestions = useMemo(() => {
+    const cityName = trip?.stops?.[0]?.city_name || '';
+    const relevant = SEED_ACTIVITIES.filter(
+      (a) =>
+        a.city_name?.toLowerCase().includes(cityName.toLowerCase()) ||
+        a.name.toLowerCase().includes(cityName.toLowerCase())
+    );
+    const pool = relevant.length >= 4 ? relevant : SEED_ACTIVITIES;
+
+    if (!spotSearchQuery.trim()) return pool.slice(0, 6);
+    return pool
+      .filter(
+        (a) =>
+          a.name.toLowerCase().includes(spotSearchQuery.toLowerCase()) ||
+          a.description?.toLowerCase().includes(spotSearchQuery.toLowerCase())
+      )
+      .slice(0, 6);
+  }, [trip, spotSearchQuery]);
+
+  const handleSelectSuggestedSpot = (act: (typeof SEED_ACTIVITIES)[0]) => {
+    setSpotName(act.name);
+    setSpotCategory(
+      act.category === 'Food & Dining'
+        ? 'restaurant'
+        : act.category === 'Culture & Museum'
+        ? 'museum'
+        : act.category === 'Nature & Outdoors'
+        ? 'park'
+        : act.category === 'Shopping'
+        ? 'shopping'
+        : 'landmark'
+    );
+    setSpotCost(act.cost || 25);
+    setSpotDuration(act.duration || 2);
+    setSpotLocation(act.city_name ? `${act.name}, ${act.city_name}` : act.name);
+    setSpotNotes(act.description || '');
+  };
+
+  // Helper for Category Badge Styling
+  const getCategoryBadge = (category?: SectionPlaceSpot['category']) => {
+    switch (category) {
+      case 'museum':
+        return {
+          icon: <Landmark className="w-3 h-3 text-indigo-600" />,
+          label: 'Museum',
+          className: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        };
+      case 'restaurant':
+        return {
+          icon: <Utensils className="w-3 h-3 text-orange-600" />,
+          label: 'Dining & Cafe',
+          className: 'bg-orange-50 text-orange-700 border-orange-200',
+        };
+      case 'viewpoint':
+        return {
+          icon: <Eye className="w-3 h-3 text-amber-600" />,
+          label: 'Viewpoint',
+          className: 'bg-amber-50 text-amber-700 border-amber-200',
+        };
+      case 'park':
+        return {
+          icon: <Trees className="w-3 h-3 text-emerald-600" />,
+          label: 'Park / Nature',
+          className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        };
+      case 'shopping':
+        return {
+          icon: <ShoppingBag className="w-3 h-3 text-rose-600" />,
+          label: 'Shopping',
+          className: 'bg-rose-50 text-rose-700 border-rose-200',
+        };
+      default:
+        return {
+          icon: <Compass className="w-3 h-3 text-sky-600" />,
+          label: 'Landmark & Sight',
+          className: 'bg-sky-50 text-sky-700 border-sky-200',
+        };
+    }
+  };
+
+  // Save full trip
+  const handleSaveFullTrip = async () => {
     if (!trip) return;
     setIsSaving(true);
     try {
-      const updated = await tripService.updateTrip(trip.id, {
-        ...trip,
+      const totalBudgetFromSections = sections.reduce((acc, s) => acc + (s.budget || 0), 0);
+      await tripService.updateTrip(trip.id, {
+        sections,
+        target_budget: totalBudgetFromSections > 0 ? totalBudgetFromSections : trip.target_budget,
         updated_at: new Date().toISOString(),
       });
-      setTrip(updated);
       setSaveSuccess(true);
-      setTimeout(() => {
-        onNavigate('my-trips', trip.id);
-      }, 600);
+      setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err) {
-      console.error('Save trip note:', err);
-      onNavigate('my-trips', trip.id);
+      console.error(err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Confirm Trip and lock in the full itinerary
+  const handleConfirmTrip = async () => {
+    if (!trip) return;
+    setIsConfirming(true);
+    try {
+      const totalBudgetFromSections = sections.reduce((acc, s) => acc + (s.budget || 0), 0);
+      const updatedData: Partial<Trip> = {
+        sections,
+        status: 'confirmed',
+        target_budget: totalBudgetFromSections > 0 ? totalBudgetFromSections : trip.target_budget,
+        updated_at: new Date().toISOString(),
+      };
+      await tripService.updateTrip(trip.id, updatedData);
+      setTrip((prev) => (prev ? { ...prev, ...updatedData, status: 'confirmed' } : null));
+      setIsConfirmedSuccessModalOpen(true);
+    } catch (err) {
+      console.error('Failed to confirm trip:', err);
+    } finally {
+      setIsConfirming(false);
     }
   };
 
   if (loading) {
     return (
       <div className="py-24 text-center">
-        <div className="w-10 h-10 border-3 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm font-semibold text-slate-600">Loading trip builder...</p>
+        <div className="w-10 h-10 border-3 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm font-semibold text-slate-600">Loading Itinerary...</p>
       </div>
     );
   }
@@ -115,824 +573,873 @@ export const ItineraryBuilderView: React.FC<ItineraryBuilderViewProps> = ({
       <div className="py-16 text-center max-w-md mx-auto">
         <p className="text-base font-bold text-slate-800">Trip not found</p>
         <button
-          onClick={() => onNavigate('my-trips')}
-          className="mt-4 px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-bold"
+          onClick={() => onNavigate('dashboard')}
+          className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold"
         >
-          Back to My Trips
+          Back to Dashboard
         </button>
       </div>
     );
   }
 
-  const budgetSummary = tripService.calculateBudgetSummary(trip);
-  const totalActivitiesCount = (trip.stops || []).reduce(
-    (acc, s) => acc + (s.activities?.length || 0),
-    0
-  );
-
-  // Stop handlers
-  const handleSaveStop = async (stopData: Omit<TripStop, 'id' | 'trip_id' | 'order_index'>) => {
-    if (editingStop) {
-      const updated = await tripService.updateStop(trip.id, editingStop.id, stopData);
-      setTrip(updated);
-      setEditingStop(undefined);
-    } else {
-      const updated = await tripService.addStop(trip.id, stopData);
-      setTrip(updated);
-    }
-  };
-
-  const handleDeleteStop = async (stopId: string) => {
-    if (confirm('Delete this destination stop and all its scheduled activities?')) {
-      const updated = await tripService.deleteStop(trip.id, stopId);
-      setTrip(updated);
-    }
-  };
-
-  const handleMoveStop = async (index: number, direction: 'up' | 'down') => {
-    const stops = [...(trip.stops || [])];
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= stops.length) return;
-
-    const temp = stops[index];
-    stops[index] = stops[targetIdx];
-    stops[targetIdx] = temp;
-
-    const updated = await tripService.reorderStops(trip.id, stops);
-    setTrip(updated);
-  };
-
-  // Activity handlers
-  const handleSaveActivity = async (
-    activityData: Omit<TripActivity, 'id' | 'trip_stop_id' | 'trip_id'>
-  ) => {
-    if (!activeStopForActivity) return;
-
-    if (editingActivity) {
-      const updated = await tripService.updateActivity(
-        trip.id,
-        activeStopForActivity.id,
-        editingActivity.id,
-        activityData
-      );
-      setTrip(updated);
-      setEditingActivity(undefined);
-    } else {
-      const updated = await tripService.addActivityToStop(
-        trip.id,
-        activeStopForActivity.id,
-        activityData
-      );
-      setTrip(updated);
-    }
-    setActiveStopForActivity(null);
-  };
-
-  const handleDeleteActivity = async (stopId: string, activityId: string) => {
-    const updated = await tripService.deleteActivity(trip.id, stopId, activityId);
-    setTrip(updated);
-  };
-
-  const handleToggleActivity = async (stopId: string, activityId: string) => {
-    const updated = await tripService.toggleActivityCompleted(trip.id, stopId, activityId);
-    setTrip(updated);
-  };
-
-  const getTransportIcon = (mode?: string) => {
-    switch (mode) {
-      case 'Train':
-        return <Train className="w-4 h-4" />;
-      case 'Bus':
-        return <Bus className="w-4 h-4" />;
-      case 'Rental Car':
-      case 'Drive':
-        return <Car className="w-4 h-4" />;
-      default:
-        return <Plane className="w-4 h-4" />;
-    }
-  };
+  const totalSectionsBudget = sections.reduce((acc, s) => acc + (s.budget || 0), 0);
+  const totalPlacesCount = sections.reduce((acc, s) => acc + (s.places?.length || 0), 0);
 
   return (
-    <div className="space-y-6 pb-20 max-w-5xl mx-auto">
-      {/* Top Breadcrumb / Navigation Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+    <div className="max-w-4xl mx-auto py-2 sm:py-6 pb-24 space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onNavigate('itinerary-view', trip.id)}
-            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors"
-            title="Back to View"
+            onClick={() => onNavigate('dashboard')}
+            className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-sky-600 uppercase tracking-wider bg-sky-50 px-2 py-0.5 rounded-md">
-                Itinerary Builder
-              </span>
-              <span className="text-xs text-slate-400">•</span>
-              <span className="text-xs text-slate-500">{budgetSummary.totalDays} Days</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-              {trip.name}
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Build Itinerary
             </h1>
+            <p className="text-xs text-slate-500 font-medium">
+              {trip.name} &bull; {sections.length} Day Sections &bull; {totalPlacesCount} Places to Visit
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2">
           <button
-            id="builder-save-to-mytrips-btn"
-            onClick={handleSaveTripToMyTrips}
+            id="builder-save-btn"
+            onClick={handleSaveFullTrip}
             disabled={isSaving}
-            className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Save Trip to My Trips"
+            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
           >
             {isSaving ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : saveSuccess ? (
-              <Check className="w-4 h-4 text-emerald-100" />
+              <Check className="w-3.5 h-3.5 text-white" />
             ) : (
-              <BookmarkCheck className="w-4 h-4" />
+              <Save className="w-3.5 h-3.5" />
             )}
-            <span>{saveSuccess ? 'Saved to My Trips!' : 'Save to My Trips'}</span>
-          </button>
-
-          <button
-            onClick={() => onNavigate('itinerary-view', trip.id)}
-            className="flex-1 sm:flex-none px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Read View</span>
-          </button>
-
-          <button
-            onClick={() => onNavigate('trip-budget', trip.id)}
-            className="flex-1 sm:flex-none px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <DollarSign className="w-4 h-4 text-emerald-600" />
-            <span>Budget</span>
+            <span>{saveSuccess ? 'Saved!' : 'Save Itinerary'}</span>
           </button>
 
           <button
             onClick={() => onOpenShareModal(trip)}
-            className="p-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-colors"
-            title="Share"
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <Share2 className="w-4 h-4" />
+            <Share2 className="w-3.5 h-3.5 text-amber-600" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+
+          <button
+            onClick={() => onNavigate('itinerary-view', trip.id)}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>Timeline</span>
           </button>
         </div>
       </div>
 
-      {/* Live Financial & Route Summary Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-5 rounded-3xl shadow-lg">
-        <div>
-          <p className="text-[10px] uppercase font-bold text-sky-300 tracking-wider">Total Planned</p>
-          <p className="text-xl font-extrabold mt-0.5">${budgetSummary.totalPlanned.toLocaleString('en-US')}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">Target Budget</p>
-          <p className="text-xl font-bold mt-0.5">${budgetSummary.targetBudget.toLocaleString('en-US')}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider">Stops / Cities</p>
-          <p className="text-xl font-bold mt-0.5">{trip.stops?.length || 0} Destinations</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase font-bold text-amber-300 tracking-wider">Daily Average</p>
-          <p className="text-xl font-bold mt-0.5">${budgetSummary.dailyAverage.toLocaleString('en-US')} / day</p>
-        </div>
-      </div>
-
-      {/* View Switchers: Day-by-Day Timeline vs City Stops View */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center space-x-1 w-full sm:w-auto">
-          <button
-            id="builder-tab-daywise"
-            onClick={() => setBuilderTab('daywise')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              builderTab === 'daywise'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <ListFilter className="w-4 h-4" />
-            <span>Day-by-Day Timeline (Day 1, 2, 3...)</span>
-          </button>
-          <button
-            id="builder-tab-stops"
-            onClick={() => setBuilderTab('stops')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              builderTab === 'stops'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>City Stops & Transit</span>
-          </button>
+      {/* Summary Banner */}
+      <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-md">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase font-black text-amber-400 tracking-wider">
+            Active Multi-Section Plan
+          </p>
+          <h2 className="text-base sm:text-lg font-extrabold text-white">{trip.name}</h2>
+          <p className="text-xs text-slate-300">
+            {sections.length} Modular Sections &bull; Dates: {trip.start_date} to {trip.end_date}
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            id="builder-add-stop-btn"
-            onClick={() => {
-              setEditingStop(undefined);
-              setIsAddStopOpen(true);
-            }}
-            className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Add Destination Stop</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Builder Content: Day-by-Day Timeline View */}
-      {builderTab === 'daywise' ? (
-        <div className="space-y-6">
-          {(!trip.stops || trip.stops.length === 0) ? (
-            <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
-              <MapPin className="w-12 h-12 text-sky-500 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-slate-900">No destinations or days configured yet</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Add your first Indian destination stop to generate day-by-day itineraries and schedules.
-              </p>
-              <button
-                onClick={() => setIsAddStopOpen(true)}
-                className="mt-4 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" /> Add First City Stop
-              </button>
-            </div>
-          ) : (
-            (() => {
-              // Generate day list
-              const startDate = new Date(trip.start_date);
-              const endDate = new Date(trip.end_date);
-              const totalDays = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1);
-
-              const allDates: string[] = [];
-              for (let i = 0; i < totalDays; i++) {
-                const d = new Date(startDate);
-                d.setDate(startDate.getDate() + i);
-                allDates.push(d.toISOString().split('T')[0]);
-              }
-
-              return allDates.map((dateStr, idx) => {
-                const dayNum = idx + 1;
-                const isCollapsed = expandedDays[dateStr] === true;
-                
-                // Match stop for this date
-                const matchedStop = (trip.stops || []).find((s) => dateStr >= s.start_date && dateStr <= s.end_date) || trip.stops?.[0];
-                const dayActivities = (matchedStop?.activities || []).filter((a) => a.scheduled_date === dateStr);
-                const dayCost = dayActivities.reduce((acc, a) => acc + (a.cost || 0), 0);
-
-                const dateObj = new Date(dateStr);
-                const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-                return (
-                  <div
-                    key={dateStr}
-                    id={`builder-day-${dayNum}`}
-                    className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200"
-                  >
-                    {/* Day Banner Header */}
-                    <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-sky-50/40 to-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-center space-x-3.5">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white flex flex-col items-center justify-center font-black shrink-0 shadow-md">
-                          <span className="text-[10px] font-bold text-sky-300 uppercase leading-none">DAY</span>
-                          <span className="text-base leading-tight">{dayNum}</span>
-                        </div>
-
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-extrabold text-slate-900">
-                              {dayOfWeek}, {formattedDate}
-                            </h3>
-                            {matchedStop && (
-                              <span className="text-xs font-bold text-sky-800 bg-sky-100/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-sky-600" />
-                                {matchedStop.city_name}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            {dayActivities.length} Scheduled Events • Day Spend: {dayCost === 0 ? 'Free' : `$${dayCost.toLocaleString('en-US')}`}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
-                        {matchedStop && (
-                          <button
-                            id={`add-act-day-${dayNum}`}
-                            onClick={() => {
-                              setActiveStopForActivity(matchedStop);
-                              setEditingActivity(undefined);
-                              setTargetActivityDate(dateStr);
-                            }}
-                            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <PlusCircle className="w-3.5 h-3.5" />
-                            <span>Add to Day {dayNum}</span>
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => setExpandedDays((prev) => ({ ...prev, [dateStr]: !isCollapsed }))}
-                          className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-500 transition-colors"
-                          title={isCollapsed ? 'Expand Day' : 'Collapse Day'}
-                        >
-                          {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Day Activities Content */}
-                    {!isCollapsed && (
-                      <div className="p-5 sm:p-6 space-y-4">
-                        {dayActivities.length === 0 ? (
-                          <div className="text-center py-6 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
-                            <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                            <p className="text-xs font-bold text-slate-700">No activities scheduled for Day {dayNum} yet</p>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
-                              Add morning sightseeing walks, local cafe tastings, or evening landmark tours.
-                            </p>
-                            {matchedStop && (
-                              <button
-                                onClick={() => {
-                                  setActiveStopForActivity(matchedStop);
-                                  setEditingActivity(undefined);
-                                  setTargetActivityDate(dateStr);
-                                }}
-                                className="mt-3 px-3.5 py-1.5 bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <PlusCircle className="w-3.5 h-3.5" />
-                                <span>Add Activity for Day {dayNum}</span>
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                            {dayActivities.map((act) => (
-                              <div
-                                key={act.id}
-                                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                                  act.completed
-                                    ? 'bg-slate-50 border-slate-200 opacity-75'
-                                    : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm hover:shadow'
-                                }`}
-                              >
-                                <div className="flex items-center space-x-3 min-w-0">
-                                  <button
-                                    onClick={() => matchedStop && handleToggleActivity(matchedStop.id, act.id)}
-                                    className="text-slate-400 hover:text-emerald-600 transition-colors shrink-0"
-                                    title="Mark completed"
-                                  >
-                                    {act.completed ? (
-                                      <CheckCircle className="w-5 h-5 text-emerald-600" />
-                                    ) : (
-                                      <Circle className="w-5 h-5" />
-                                    )}
-                                  </button>
-
-                                  {act.image_url && (
-                                    <img
-                                      src={act.image_url}
-                                      alt={act.name}
-                                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-100"
-                                    />
-                                  )}
-
-                                  <div className="min-w-0">
-                                    <p
-                                      className={`text-sm font-bold text-slate-900 truncate ${
-                                        act.completed ? 'line-through text-slate-500' : ''
-                                      }`}
-                                    >
-                                      {act.name}
-                                    </p>
-                                    <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-                                      <span className="font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded">
-                                        {act.scheduled_time || 'Morning'}
-                                      </span>
-                                      <span>• {act.duration}h</span>
-                                      <span className="text-slate-400">•</span>
-                                      <span className="truncate text-slate-600">{act.category}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center space-x-2 shrink-0 pl-2">
-                                  <span className="text-xs font-extrabold text-slate-900">
-                                    {act.cost === 0 ? 'Free' : `$${act.cost.toLocaleString('en-US')}`}
-                                  </span>
-                                  {matchedStop && (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          setActiveStopForActivity(matchedStop);
-                                          setEditingActivity(act);
-                                          setTargetActivityDate(act.scheduled_date);
-                                        }}
-                                        className="p-1 text-slate-400 hover:text-sky-600 rounded cursor-pointer"
-                                        title="Edit Activity"
-                                      >
-                                        <Edit3 className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteActivity(matchedStop.id, act.id)}
-                                        className="p-1 text-slate-300 hover:text-rose-600 rounded cursor-pointer"
-                                        title="Delete Activity"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              });
-            })()
-          )}
-        </div>
-      ) : (
-        /* Multi-City Stops List */
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Destination Stops & Inter-City Transit</h2>
-              <p className="text-xs text-slate-500">
-                Reorder stops, adjust hotel stays, and edit transit logistics.
-              </p>
-            </div>
-          </div>
-
-        {(!trip.stops || trip.stops.length === 0) ? (
-          <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
-            <MapPin className="w-12 h-12 text-sky-500 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-900">No destination stops added yet</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Start building your multi-city route by adding your first city, arrival dates, and transport info.
+        <div className="flex items-center gap-4 bg-slate-800/80 px-4 py-2.5 rounded-xl border border-slate-700">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-slate-400">Total Section Budget</p>
+            <p className="text-xl font-black text-emerald-400">
+              ${totalSectionsBudget.toLocaleString('en-US')} USD
             </p>
-            <button
-              onClick={() => setIsAddStopOpen(true)}
-              className="mt-4 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-1.5"
-            >
-              <PlusCircle className="w-4 h-4" /> Add First City Stop
-            </button>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {trip.stops.map((stop, index) => {
-              const start = new Date(stop.start_date);
-              const end = new Date(stop.end_date);
-              const nights = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
-              const stayTotal = nights * (stop.accommodation_cost_per_night || 0);
-              const transportCost = Number(stop.transport_cost_to_stop || 0);
-              const activitiesTotal = (stop.activities || []).reduce((a, b) => a + (b.cost || 0), 0);
-              const stopTotal = stayTotal + transportCost + activitiesTotal;
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={stop.id}
-                  className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200"
-                >
-                  {/* Stop Header Banner */}
-                  <div className="p-5 sm:p-6 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-center space-x-4">
-                      {/* Order index badge */}
-                      <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-sm shrink-0">
-                        {index + 1}
-                      </div>
+      {/* Section Cards List with Places & Spots to Visit Option in each day section */}
+      <div className="space-y-6">
+        {sections.map((section, idx) => {
+          const sectionPlaces = section.places || [];
+          const sectionPlacesCost = sectionPlaces.reduce((sum, p) => sum + (p.cost || 0), 0);
 
-                      {/* Photo thumbnail */}
-                      {stop.city_photo && (
-                        <img
-                          src={stop.city_photo}
-                          alt={stop.city_name}
-                          className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
-                        />
-                      )}
-
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-bold text-slate-900">{stop.city_name}</h3>
-                          <span className="text-xs font-semibold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
-                            {stop.country}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-sky-600" />
-                          {stop.start_date} → {stop.end_date} ({nights} Nights)
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Controls & Financials */}
-                    <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3">
-                      <div className="text-left sm:text-right">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                          Stop Total
-                        </span>
-                        <span className="text-sm font-extrabold text-slate-900">
-                          ${stopTotal.toLocaleString('en-US')}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center space-x-1 border-l border-slate-200 pl-3">
-                        <button
-                          onClick={() => handleMoveStop(index, 'up')}
-                          disabled={index === 0}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 disabled:opacity-30 rounded-lg hover:bg-slate-200"
-                          title="Move Stop Up"
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleMoveStop(index, 'down')}
-                          disabled={index === (trip.stops?.length || 0) - 1}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 disabled:opacity-30 rounded-lg hover:bg-slate-200"
-                          title="Move Stop Down"
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingStop(stop);
-                            setIsAddStopOpen(true);
-                          }}
-                          className="p-1.5 text-slate-500 hover:text-sky-600 rounded-lg hover:bg-sky-50"
-                          title="Edit Stop Details"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteStop(stop.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-                          title="Delete Stop"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stop Logistics Metadata Strip */}
-                  <div className="px-6 py-3 bg-sky-50/50 border-b border-slate-100 flex flex-wrap items-center gap-4 text-xs text-slate-700">
-                    <span className="flex items-center gap-1 font-semibold text-sky-800">
-                      {getTransportIcon(stop.transport_mode)} {stop.transport_mode || 'Train'}: {transportCost === 0 ? 'Free' : `$${transportCost.toLocaleString('en-US')}`}
+          return (
+            <div
+              key={section.id}
+              className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-7 hover:border-amber-400 hover:shadow-md transition-all space-y-5 group"
+            >
+              {/* Header: Section 1 / 2 / 3 Title & Action Controls */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
+                      Section {idx + 1}
                     </span>
-                    <span>•</span>
-                    <span className="font-semibold text-slate-700">
-                      Stay: {stop.accommodation_cost_per_night ? `$${stop.accommodation_cost_per_night.toLocaleString('en-US')}/night` : 'Included'} (${stayTotal.toLocaleString('en-US')} total)
-                    </span>
-                    {stop.notes && (
-                      <>
-                        <span>•</span>
-                        <span className="text-slate-500 italic truncate max-w-sm" title={stop.notes}>
-                          Note: {stop.notes}
-                        </span>
-                      </>
+                    {section.type && (
+                      <span className="text-[11px] font-bold text-slate-500 capitalize">
+                        &bull; {section.type}
+                      </span>
+                    )}
+                    {section.location && (
+                      <span className="text-[11px] text-slate-500 font-medium hidden sm:inline flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-amber-600" /> {section.location}
+                      </span>
                     )}
                   </div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">
+                    {section.title}
+                  </h3>
+                </div>
 
-                  {/* Activities List under Stop */}
-                  <div className="p-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                        Scheduled Activities ({stop.activities?.length || 0})
-                      </h4>
-                      <button
-                        onClick={() => {
-                          setActiveStopForActivity(stop);
-                          setEditingActivity(undefined);
-                        }}
-                        className="text-xs font-bold text-sky-600 hover:text-sky-800 flex items-center gap-1 cursor-pointer"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Add Activity</span>
-                      </button>
+                {/* Reorder and Edit / Delete actions */}
+                <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleMoveSection(idx, 'up')}
+                    disabled={idx === 0}
+                    title="Move section up"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 cursor-pointer"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleMoveSection(idx, 'down')}
+                    disabled={idx === sections.length - 1}
+                    title="Move section down"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 cursor-pointer"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditSection(section)}
+                    title="Edit section"
+                    className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-700 cursor-pointer"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSection(section.id)}
+                    title="Delete section"
+                    className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Description Text */}
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+                {section.description ||
+                  'All the necessary information about this section. This can be anything like travel section, hotel or any other activity.'}
+              </p>
+
+              {/* ========================================================================= */}
+              {/* PLACES & SPOTS TO VISIT ON THIS DAY (Requested Feature) */}
+              {/* ========================================================================= */}
+              <div className="pt-1 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                      <MapPin className="w-3.5 h-3.5 text-amber-700" />
                     </div>
+                    <span className="text-xs sm:text-sm font-black text-slate-900">
+                      Places & Spots to Visit on this Day ({sectionPlaces.length})
+                    </span>
+                  </div>
 
-                    {(!stop.activities || stop.activities.length === 0) ? (
-                      <p className="text-xs text-slate-400 italic py-2">
-                        No activities scheduled for {stop.city_name} yet. Click "Add Activity" to populate this city.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {stop.activities.map((act) => (
-                          <div
-                            key={act.id}
-                            className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between ${
-                              act.completed
-                                ? 'bg-slate-50 border-slate-200 opacity-75'
-                                : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-3 min-w-0">
-                              <button
-                                onClick={() => handleToggleActivity(stop.id, act.id)}
-                                className="text-slate-400 hover:text-emerald-600 transition-colors shrink-0"
-                              >
-                                {act.completed ? (
-                                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                                ) : (
-                                  <Circle className="w-5 h-5" />
-                                )}
-                              </button>
+                  {/* Add Place / Spot Button inside this section */}
+                  <button
+                    id={`add-spot-btn-${section.id}`}
+                    onClick={() => handleOpenAddSpot(section.id)}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer hover:shadow-md"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>+ Add Place or Spot</span>
+                  </button>
+                </div>
 
-                              {act.image_url && (
-                                <img
-                                  src={act.image_url}
-                                  alt={act.name}
-                                  className="w-10 h-10 rounded-lg object-cover shrink-0"
-                                />
+                {/* List of Places/Spots added to this day section */}
+                {sectionPlaces.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {sectionPlaces.map((spot) => {
+                      const badge = getCategoryBadge(spot.category);
+                      return (
+                        <div
+                          key={spot.id}
+                          className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            spot.visited
+                              ? 'bg-slate-50/90 border-slate-200 text-slate-400'
+                              : 'bg-white border-slate-200/90 hover:border-amber-300 hover:bg-amber-50/20'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Checkbox toggle visited status */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSpotVisited(section.id, spot.id)}
+                              title={spot.visited ? 'Mark as pending' : 'Mark as visited'}
+                              className="mt-0.5 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
+                            >
+                              {spot.visited ? (
+                                <CheckSquare className="w-4 h-4 text-emerald-600" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-400" />
                               )}
+                            </button>
 
-                              <div className="min-w-0">
-                                <p
-                                  className={`text-sm font-bold text-slate-900 truncate ${
-                                    act.completed ? 'line-through text-slate-500' : ''
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4
+                                  className={`text-xs sm:text-sm font-extrabold ${
+                                    spot.visited ? 'line-through text-slate-500' : 'text-slate-900'
                                   }`}
                                 >
-                                  {act.name}
-                                </p>
-                                <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                                  <span className="font-semibold text-slate-700">
-                                    {act.scheduled_date}
-                                  </span>
-                                  <span>• {act.scheduled_time || 'Morning'}</span>
-                                  <span>• {act.duration}h</span>
-                                </div>
-                              </div>
-                            </div>
+                                  {spot.name}
+                                </h4>
 
-                            <div className="flex items-center space-x-2 shrink-0 pl-2">
-                              <span className="text-xs font-extrabold text-slate-900">
-                                {act.cost === 0 ? 'Free' : `$${act.cost.toLocaleString('en-US')}`}
-                              </span>
-                              <button
-                                onClick={() => {
-                                  setActiveStopForActivity(stop);
-                                  setEditingActivity(act);
-                                }}
-                                className="p-1 text-slate-400 hover:text-sky-600 rounded"
-                                title="Edit Activity"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteActivity(stop.id, act.id)}
-                                className="p-1 text-slate-300 hover:text-rose-600 rounded"
-                                title="Delete Activity"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${badge.className}`}
+                                >
+                                  {badge.icon}
+                                  {badge.label}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 font-medium">
+                                {spot.time && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-amber-600" />
+                                    {spot.time}
+                                    {spot.duration ? ` (${spot.duration} hrs)` : ''}
+                                  </span>
+                                )}
+
+                                {spot.location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 text-slate-400" />
+                                    {spot.location}
+                                  </span>
+                                )}
+
+                                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                                  {spot.cost && spot.cost > 0 ? `$${spot.cost} USD` : 'Free Entry'}
+                                </span>
+                              </div>
+
+                              {spot.notes && (
+                                <p className="text-[11px] text-slate-600 bg-slate-50 p-1.5 px-2.5 rounded-lg border border-slate-100 max-w-xl">
+                                  💡 {spot.notes}
+                                </p>
+                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+
+                          {/* Spot action buttons (Edit, Delete) */}
+                          <div className="flex items-center gap-1 self-end sm:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditSpot(section.id, spot)}
+                              title="Edit spot"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSpot(section.id, spot.id)}
+                              title="Delete spot"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                ) : (
+                  <div
+                    onClick={() => handleOpenAddSpot(section.id)}
+                    className="p-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-amber-400 bg-slate-50/50 hover:bg-amber-50/30 text-center cursor-pointer transition-all space-y-1 group/empty"
+                  >
+                    <p className="text-xs font-bold text-slate-600 group-hover/empty:text-amber-900">
+                      No places or spots added to this day section yet
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Click to add landmarks, museums, dining, viewpoints, and stops for this day
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Bar Pills: [ Date Range ] [ Budget of this section ] */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Date Range Pill */}
+                  <button
+                    onClick={() => handleOpenEditSection(section)}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer border border-slate-200/80"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                    <span>
+                      Date Range: {section.start_date || trip.start_date} to {section.end_date || trip.end_date}
+                    </span>
+                  </button>
+
+                  {/* Budget of this section Pill */}
+                  <button
+                    onClick={() => handleOpenEditSection(section)}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-black transition-colors flex items-center gap-1.5 cursor-pointer border border-emerald-200"
+                  >
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>
+                      Budget: ${section.budget?.toLocaleString('en-US') || '0'} USD
+                    </span>
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      )}
 
-      {/* End-of-Planning Completion & Save to My Trips Card */}
-      <div className="mt-10 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white border border-slate-700 shadow-2xl overflow-hidden relative">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-2.5 max-w-xl">
-            <div className="flex items-center gap-2">
-              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Itinerary Ready
-              </span>
-              <span className="text-xs text-slate-400 font-semibold">•</span>
-              <span className="text-xs text-slate-300 font-medium">
-                {trip.start_date} to {trip.end_date}
-              </span>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Trip Planning Complete!
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Your {budgetSummary.totalDays}-day journey across {trip.stops?.length || 0} destination{(trip.stops?.length || 0) === 1 ? '' : 's'} with {totalActivitiesCount} scheduled spot{totalActivitiesCount === 1 ? '' : 's'} is organized. Save your finished trip now to keep it in <strong className="text-emerald-400">My Trips</strong>, track expenses, export PDF, and share with travel companions.
-            </p>
-
-            {/* Quick Metrics Strip */}
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Duration</span>
-                <span className="text-sm sm:text-base font-extrabold text-white">{budgetSummary.totalDays} Days</span>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Spots & Sights</span>
-                <span className="text-sm sm:text-base font-extrabold text-white">{totalActivitiesCount} Spots</span>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Est.</span>
-                <span className="text-sm sm:text-base font-extrabold text-amber-300">${budgetSummary.totalPlanned.toLocaleString('en-US')}</span>
+                {sectionPlacesCost > 0 && (
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Spots Total: <strong className="text-slate-800">${sectionPlacesCost} USD</strong>
+                  </span>
+                )}
               </div>
             </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto shrink-0">
-            <button
-              id="save-trip-complete-btn"
-              onClick={handleSaveTripToMyTrips}
-              disabled={isSaving}
-              className="px-6 py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-slate-950 font-black rounded-2xl text-sm shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 group"
-            >
-              {isSaving ? (
-                <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <BookmarkCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              )}
-              <span>{saveSuccess ? 'Saved! Opening My Trips...' : 'Save Trip to My Trips'}</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onNavigate('itinerary-view', trip.id)}
-                className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Read View</span>
-              </button>
-              <button
-                onClick={() => onOpenShareModal(trip)}
-                className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Share</span>
-              </button>
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Floating Save Action Bar */}
-      <div className="fixed bottom-5 right-5 sm:right-8 z-40">
+      {/* Button: [ + Add another Section ] */}
+      <div className="flex justify-center pt-6 pb-2">
         <button
-          id="floating-save-trip-btn"
-          onClick={handleSaveTripToMyTrips}
-          disabled={isSaving}
-          className="px-4 sm:px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-xs shadow-2xl border border-slate-700 backdrop-blur-md flex items-center gap-2 transition-all hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 group"
-          title="Save changes and view in My Trips"
+          id="add-another-section-btn"
+          onClick={handleOpenAddSection}
+          className="px-8 py-3.5 rounded-2xl bg-white hover:bg-amber-50 text-slate-900 hover:text-amber-900 border-2 border-slate-300 hover:border-amber-400 font-black text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer transform hover:scale-102"
         >
-          {isSaving ? (
-            <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <BookmarkCheck className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-          )}
-          <span>{saveSuccess ? 'Saved!' : 'Save Trip'}</span>
+          <Plus className="w-5 h-5 text-amber-600 stroke-[2.5]" />
+          <span>+ Add another Section</span>
         </button>
       </div>
 
-      {/* Add / Edit Stop Modal */}
-      {isAddStopOpen && (
-        <AddStopModal
-          isOpen={isAddStopOpen}
-          onClose={() => {
-            setIsAddStopOpen(false);
-            setEditingStop(undefined);
-          }}
-          onSave={handleSaveStop}
-          editingStop={editingStop}
-          defaultStartDate={trip.start_date}
-          defaultEndDate={trip.end_date}
-        />
+      {/* ========================================================================= */}
+      {/* END OF BUILD ITINERARY: CONFIRM TRIP ACTION CARD */}
+      {/* ========================================================================= */}
+      <div className="mt-8 bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2.5 max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-400/30">
+              <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+              <span>Finalize & Lock Itinerary</span>
+            </div>
+
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              Ready to Confirm this Trip?
+            </h3>
+
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
+              Confirm your itinerary with <strong className="text-amber-300 font-bold">{sections.length} day sections</strong>, <strong className="text-amber-300 font-bold">{totalPlacesCount} places to visit</strong>, and a total planned budget of <strong className="text-emerald-400 font-bold">${totalSectionsBudget.toLocaleString('en-US')} USD</strong>.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-400 font-medium">
+              <span className="flex items-center gap-1.5 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80">
+                <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                {trip.start_date} &rarr; {trip.end_date}
+              </span>
+              <span className="flex items-center gap-1.5 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80">
+                <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                {trip.stops?.[0]?.city_name || 'Multi-City'}
+              </span>
+              {trip.status === 'confirmed' && (
+                <span className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl font-bold">
+                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Confirmed Itinerary
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0">
+            <button
+              id="confirm-trip-btn"
+              onClick={handleConfirmTrip}
+              disabled={isConfirming}
+              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-sm shadow-xl shadow-amber-950/50 transition-all flex items-center justify-center gap-2.5 cursor-pointer transform hover:scale-102 active:scale-98 disabled:opacity-50"
+            >
+              {isConfirming ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5 text-white stroke-[2.5]" />
+              )}
+              <span>{trip.status === 'confirmed' ? 'Update & Confirm Trip' : 'Confirm Trip'}</span>
+            </button>
+
+            <button
+              id="view-timeline-btn"
+              onClick={() => onNavigate('itinerary-view', trip.id)}
+              className="px-5 py-4 rounded-2xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>View Timeline</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD / EDIT PLACE OR SPOT IN A SPECIFIC DAY SECTION */}
+      {/* ========================================================================= */}
+      {isAddSpotModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    {editingSpot ? 'Edit Place or Spot' : 'Add Place or Spot to this Day'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {sections.find((s) => s.id === targetSectionIdForSpot)?.title || 'Selected Section'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddSpotModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Pick Recommended Attractions & Spots */}
+            {!editingSpot && spotSuggestions.length > 0 && (
+              <div className="space-y-2 p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    Quick Suggestions for this Destination
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-bold">1-click select</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                  {spotSuggestions.map((act) => (
+                    <button
+                      key={act.id}
+                      type="button"
+                      onClick={() => handleSelectSuggestedSpot(act)}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-500 hover:text-white border border-amber-200 text-slate-800 text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>{act.name}</span>
+                      <span className="text-[10px] opacity-75">(${act.cost || 20})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSpot} className="space-y-4">
+              {/* Spot Name */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Place / Spot Name <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="spot-name-input"
+                    type="text"
+                    required
+                    value={spotName}
+                    onChange={(e) => setSpotName(e.target.value)}
+                    placeholder="e.g. Louvre Museum, Eiffel Tower, Trastevere Food Tour..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Category & Scheduled Time */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={spotCategory}
+                    onChange={(e) => setSpotCategory(e.target.value as any)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="landmark">🏛️ Landmark & Historical Sight</option>
+                    <option value="museum">🖼️ Museum & Art Gallery</option>
+                    <option value="restaurant">🍽️ Restaurant, Cafe & Dining</option>
+                    <option value="viewpoint">🌅 Scenic Viewpoint / Lookout</option>
+                    <option value="park">🌲 Park, Beach & Nature</option>
+                    <option value="shopping">🛍️ Shopping & Local Market</option>
+                    <option value="attraction">🎡 Tour & Entertainment</option>
+                    <option value="other">📍 Other Destination Spot</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Scheduled Time
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <input
+                      type="text"
+                      value={spotTime}
+                      onChange={(e) => setSpotTime(e.target.value)}
+                      placeholder="e.g. 10:00 AM or Sunset / 06:30 PM"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Duration & Estimated Cost */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Duration (Hours)
+                  </label>
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={spotDuration}
+                    onChange={(e) => setSpotDuration(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Estimated Cost ($ USD)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={5}
+                      value={spotCost}
+                      onChange={(e) => setSpotCost(Number(e.target.value))}
+                      placeholder="0 for free"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Location / Address / District
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <MapPin className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={spotLocation}
+                    onChange={(e) => setSpotLocation(e.target.value)}
+                    placeholder="e.g. Champs-Élysées, Paris, France"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Notes / Tips */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Notes, Tips & Booking Details
+                </label>
+                <textarea
+                  rows={2}
+                  value={spotNotes}
+                  onChange={(e) => setSpotNotes(e.target.value)}
+                  placeholder="e.g. Pre-booked fast track pass, arrive 15 minutes before slot, best photos at sunset..."
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSpotModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="save-spot-submit-btn"
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingSpot ? 'Save Spot Changes' : 'Add Spot to Day'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {/* Add / Edit Activity Modal */}
-      {activeStopForActivity && (
-        <AddActivityModal
-          isOpen={!!activeStopForActivity}
-          onClose={() => {
-            setActiveStopForActivity(null);
-            setEditingActivity(undefined);
-            setTargetActivityDate(undefined);
-          }}
-          onSave={handleSaveActivity}
-          stop={activeStopForActivity}
-          editingActivity={editingActivity}
-          initialDate={targetActivityDate}
-        />
+      {/* ========================================================================= */}
+      {/* MODAL: ADD OR EDIT AN ENTIRE SECTION */}
+      {/* ========================================================================= */}
+      {isAddSectionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-black text-slate-900">
+                {editingSection ? 'Edit Section Details' : 'Add New Itinerary Section'}
+              </h3>
+              <button
+                onClick={() => setIsAddSectionModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSectionForm} className="space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Section Title / Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g. Section 4: High-Speed Train & Venice Hotel"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Type & Location */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Section Category
+                  </label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="travel">Travel / Transport</option>
+                    <option value="stay">Hotel / Accommodation</option>
+                    <option value="activity">Activity / Sightseeing</option>
+                    <option value="dining">Food & Dining</option>
+                    <option value="general">General Section</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Location / Place
+                  </label>
+                  <input
+                    type="text"
+                    value={formLocation}
+                    onChange={(e) => setFormLocation(e.target.value)}
+                    placeholder="e.g. Rome, Italy"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Section Details / Information *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="All the necessary information about this section. This can be anything like travel section, hotel or any other activity."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={formStartDate}
+                    onChange={(e) => setFormStartDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    min={formStartDate}
+                    value={formEndDate}
+                    onChange={(e) => setFormEndDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Budget */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                  Budget of this Section ($ USD)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    step={25}
+                    value={formBudget}
+                    onChange={(e) => setFormBudget(Number(e.target.value))}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSectionModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  {editingSection ? 'Save Section Changes' : 'Add Section'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: TRIP CONFIRMATION SUCCESS */}
+      {/* ========================================================================= */}
+      {isConfirmedSuccessModalOpen && trip && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header Icon */}
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/30">
+              <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-black border border-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Trip Confirmed &amp; Itinerary Ready</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                {trip.name || 'Your Trip'} is Confirmed!
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
+                Your travel itinerary has been locked in and saved to your account. You can now view the day-by-day interactive timeline, track daily costs, or share the plan with co-travelers.
+              </p>
+            </div>
+
+            {/* Trip Stats Overview Grid */}
+            <div className="grid grid-cols-3 gap-2.5 p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-left">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Day Sections</span>
+                <span className="text-sm font-black text-slate-800">{sections.length} Days</span>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Places to Visit</span>
+                <span className="text-sm font-black text-amber-800">{totalPlacesCount} Sights</span>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Est. Budget</span>
+                <span className="text-sm font-black text-emerald-800">${totalSectionsBudget.toLocaleString('en-US')}</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5 pt-2">
+              <button
+                id="modal-view-itinerary-btn"
+                onClick={() => {
+                  setIsConfirmedSuccessModalOpen(false);
+                  onNavigate('itinerary-view', trip.id);
+                }}
+                className="w-full py-3.5 px-5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>View Day-by-Day Timeline Itinerary</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  id="modal-share-trip-btn"
+                  onClick={() => {
+                    setIsConfirmedSuccessModalOpen(false);
+                    onOpenShareModal(trip);
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Share Plan</span>
+                </button>
+
+                <button
+                  id="modal-dashboard-btn"
+                  onClick={() => {
+                    setIsConfirmedSuccessModalOpen(false);
+                    onNavigate('dashboard');
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+                >
+                  <span>Dashboard</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsConfirmedSuccessModalOpen(false)}
+                className="text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors pt-1 cursor-pointer"
+              >
+                Keep editing sections &amp; spots
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

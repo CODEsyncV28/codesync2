@@ -12,17 +12,21 @@ import {
   Lock,
   ArrowRight,
   Sparkles,
-  AlertCircle,
   CheckCircle2,
-  BookmarkCheck,
-  Compass,
-  CheckCircle,
   Clock,
   History,
+  Compass,
+  SlidersHorizontal,
+  Layers,
+  ArrowUpDown,
+  Tag,
+  DollarSign,
+  Activity as ActivityIcon,
 } from 'lucide-react';
 import { Trip } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { tripService } from '../services/tripService';
+import { SafeImage } from '../components/SafeImage';
 
 interface MyTripsViewProps {
   onNavigate: (screen: any, tripId?: string) => void;
@@ -41,7 +45,9 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'completed' | 'public'>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'budget_asc' | 'budget_desc' | 'name'>('date_asc');
+  const [groupBy, setGroupBy] = useState<'status' | 'none'>('status');
   const [showSavedToast, setShowSavedToast] = useState(!!highlightedTripId);
 
   const loadTrips = async () => {
@@ -82,7 +88,7 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
       const cloned = await tripService.cloneTrip(
         trip.id,
         user?.id || 'demo-user-1',
-        user?.name || 'Traveler'
+        user?.name || 'Elena Rostova'
       );
       setTrips((prev) => [cloned, ...prev]);
     } catch (err) {
@@ -92,204 +98,275 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const searchFilteredTrips = trips.filter((trip) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const matchName = trip.name.toLowerCase().includes(q);
-    const matchDesc = trip.description?.toLowerCase().includes(q);
-    const matchCity = trip.stops?.some((s) => s.city_name.toLowerCase().includes(q));
-    return matchName || matchDesc || matchCity;
+  // Filter & Search logic
+  let processedTrips = trips.filter((trip) => {
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchName = trip.name?.toLowerCase().includes(q);
+      const matchDesc = trip.description?.toLowerCase().includes(q);
+      const matchCity = trip.stops?.some(
+        (s) => s.city_name.toLowerCase().includes(q) || s.country?.toLowerCase().includes(q)
+      );
+      const matchTag = trip.tags?.some((t) => t.toLowerCase().includes(q));
+      const matchActivity = trip.stops?.some((s) =>
+        s.activities?.some((a) => a.name.toLowerCase().includes(q))
+      );
+      if (!matchName && !matchDesc && !matchCity && !matchTag && !matchActivity) return false;
+    }
+
+    // Category filter
+    if (filterCategory !== 'All') {
+      const matchTag = trip.tags?.some((t) => t.toLowerCase().includes(filterCategory.toLowerCase()));
+      if (!matchTag) return false;
+    }
+
+    return true;
   });
 
-  const upcomingTrips = searchFilteredTrips.filter((t) => t.end_date >= todayStr);
-  const completedTrips = searchFilteredTrips.filter((t) => t.end_date < todayStr);
-  const publicTrips = searchFilteredTrips.filter((t) => t.is_public);
+  // Sorting
+  processedTrips.sort((a, b) => {
+    if (sortBy === 'date_asc') {
+      return a.start_date.localeCompare(b.start_date);
+    }
+    if (sortBy === 'date_desc') {
+      return b.start_date.localeCompare(a.start_date);
+    }
+    if (sortBy === 'budget_asc') {
+      return (a.target_budget || a.budget_total || 0) - (b.target_budget || b.budget_total || 0);
+    }
+    if (sortBy === 'budget_desc') {
+      return (b.target_budget || b.budget_total || 0) - (a.target_budget || a.budget_total || 0);
+    }
+    if (sortBy === 'name') {
+      return a.name.localeCompare(b.name);
+    }
+    return 0;
+  });
 
-  const renderTripCard = (trip: Trip) => {
+  // Categorize trips into Ongoing, Up-coming, Completed
+  const ongoingTrips = processedTrips.filter(
+    (t) => t.start_date <= todayStr && t.end_date >= todayStr
+  );
+  const upcomingTrips = processedTrips.filter((t) => t.start_date > todayStr);
+  const completedTrips = processedTrips.filter((t) => t.end_date < todayStr);
+
+  const renderTripOverviewCard = (trip: Trip, statusBadge: 'Ongoing' | 'Up-coming' | 'Completed') => {
     const budget = tripService.calculateBudgetSummary(trip);
-    const isCompleted = trip.end_date < todayStr;
     const isHighlighted = highlightedTripId === trip.id;
+    const totalActivities = trip.stops?.reduce((acc, s) => acc + (s.activities?.length || 0), 0) || 0;
 
     return (
       <div
         key={trip.id}
+        id={`trip-card-${trip.id}`}
         onClick={() => {
           onSelectTrip(trip.id);
           onNavigate('itinerary-view', trip.id);
         }}
-        className={`group bg-white rounded-3xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between relative ${
+        className={`group bg-white rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden flex flex-col lg:flex-row hover:shadow-lg ${
           isHighlighted
-            ? 'border-2 border-emerald-500 ring-4 ring-emerald-500/15 shadow-emerald-500/10'
-            : 'border border-slate-200 hover:border-slate-300'
+            ? 'border-emerald-500 ring-4 ring-emerald-500/15 shadow-md shadow-emerald-500/10'
+            : 'border-slate-200 hover:border-sky-300'
         }`}
       >
-        <div>
-          {/* Photo Header */}
-          <div className="relative h-48 w-full overflow-hidden bg-slate-100">
-            <img
-              src={trip.cover_photo}
-              alt={trip.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+        {/* Left Thumbnail Banner */}
+        <div className="relative w-full lg:w-72 h-48 lg:h-auto shrink-0 overflow-hidden bg-slate-100">
+          <SafeImage
+            src={trip.cover_photo || trip.cover_image_url}
+            alt={trip.name}
+            fallbackCategory="Sightseeing"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t lg:bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
 
-            {/* Top status badges */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1 ${
-                    isCompleted
-                      ? 'bg-slate-800/85 text-slate-300 border border-slate-700/50'
-                      : 'bg-emerald-600/90 text-white shadow-sm'
-                  }`}
-                >
-                  {isCompleted ? (
-                    <>
-                      <CheckCircle className="w-3 h-3 text-slate-300" />
-                      Completed
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-3 h-3 text-emerald-200" />
-                      Upcoming
-                    </>
-                  )}
-                  <span>• {budget.totalDays} Days</span>
-                </span>
+          {/* Status badge on image */}
+          <div className="absolute top-3 left-3 flex items-center gap-2">
+            <span
+              className={`text-[11px] font-extrabold px-3 py-1 rounded-full backdrop-blur-md flex items-center gap-1.5 shadow-sm ${
+                statusBadge === 'Ongoing'
+                  ? 'bg-amber-500 text-slate-950 ring-1 ring-amber-400'
+                  : statusBadge === 'Up-coming'
+                  ? 'bg-sky-600 text-white'
+                  : 'bg-slate-800/90 text-slate-300 border border-slate-700'
+              }`}
+            >
+              {statusBadge === 'Ongoing' && <span className="w-2 h-2 rounded-full bg-slate-950 animate-ping" />}
+              {statusBadge === 'Up-coming' && <Clock className="w-3 h-3 text-sky-200" />}
+              {statusBadge === 'Completed' && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+              {statusBadge}
+            </span>
 
-                {isHighlighted && (
-                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 shadow-sm flex items-center gap-1 animate-pulse">
-                    <Sparkles className="w-3 h-3" /> Saved Just Now
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span
-                  className={`p-1.5 rounded-full backdrop-blur-md text-white text-[10px] ${
-                    trip.is_public ? 'bg-sky-600/80' : 'bg-slate-700/80'
-                  }`}
-                  title={trip.is_public ? 'Public' : 'Private'}
-                >
-                  {trip.is_public ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                </span>
-              </div>
-            </div>
-
-            {/* Trip title on image */}
-            <div className="absolute bottom-3 left-4 right-4 text-white">
-              <h3 className="font-bold text-lg leading-snug line-clamp-1 group-hover:text-sky-300 transition-colors">
-                {trip.name}
-              </h3>
-              <p className="text-xs text-sky-200 font-medium flex items-center gap-1 mt-0.5">
-                <Calendar className="w-3 h-3 text-sky-300" /> {trip.start_date} – {trip.end_date}
-              </p>
-            </div>
+            {isHighlighted && (
+              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 shadow-sm flex items-center gap-1 animate-pulse">
+                <Sparkles className="w-3 h-3" /> Saved Just Now
+              </span>
+            )}
           </div>
 
-          {/* Body Content */}
-          <div className="p-5 space-y-4">
-            {/* Cities pills */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                Destinations ({trip.stops?.length || 0})
-              </p>
-              {trip.stops && trip.stops.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {trip.stops.map((stop) => (
-                    <span
-                      key={stop.id}
-                      className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-xs font-semibold flex items-center gap-1"
-                    >
-                      <MapPin className="w-3 h-3 text-sky-500" />
-                      {stop.city_name}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">No stops added yet</p>
-              )}
-            </div>
-
-            {/* Financial & Activities summary */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                  Planned Cost
-                </span>
-                <span className="font-extrabold text-slate-900 text-sm">
-                  ${budget.totalPlanned.toLocaleString('en-US')}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                  Activities
-                </span>
-                <span className="font-bold text-slate-800 text-sm">
-                  {trip.stops?.reduce((acc, s) => acc + (s.activities?.length || 0), 0) || 0} Scheduled
-                </span>
-              </div>
-            </div>
+          <div className="absolute bottom-3 left-3 right-3 text-white">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-sm inline-flex items-center gap-1 mb-1 text-sky-200">
+              <Calendar className="w-3 h-3 text-sky-300" />
+              {trip.start_date} – {trip.end_date}
+            </span>
+            <p className="text-[11px] text-slate-300 font-medium">
+              {budget.totalDays} Days • {trip.stops?.length || 0} Stops
+            </p>
           </div>
         </div>
 
-        {/* Bottom Action Footer */}
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-          <div className="flex items-center space-x-1">
-            <button
-              id={`trip-share-btn-${trip.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenShareModal(trip);
-              }}
-              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-              title="Share Itinerary"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
+        {/* Middle: Short Overview of the Trip */}
+        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+          <div>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-sky-600 transition-colors leading-snug">
+                  {trip.name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                  {trip.description || 'Custom multi-city travel itinerary with scheduled daily activities and budget breakdown.'}
+                </p>
+              </div>
 
-            <button
-              id={`trip-duplicate-btn-${trip.id}`}
-              onClick={(e) => handleDuplicate(trip, e)}
-              className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-              title="Clone Itinerary"
-            >
-              <Copy className="w-4 h-4" />
-            </button>
+              <span
+                className={`p-1.5 rounded-lg text-xs font-medium shrink-0 flex items-center gap-1 ${
+                  trip.is_public ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-600'
+                }`}
+                title={trip.is_public ? 'Public Trip' : 'Private Trip'}
+              >
+                {trip.is_public ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                <span className="text-[10px] font-semibold">{trip.is_public ? 'Public' : 'Private'}</span>
+              </span>
+            </div>
 
-            <button
-              id={`trip-builder-btn-${trip.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectTrip(trip.id);
-                onNavigate('itinerary-builder', trip.id);
-              }}
-              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-              title="Edit Builder"
-            >
-              <Edit3 className="w-4 h-4" />
-            </button>
+            {/* Stops Route Pill sequence */}
+            <div className="mt-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-sky-500" /> Itinerary Route & Stops
+              </p>
+              {trip.stops && trip.stops.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {trip.stops.map((stop, idx) => (
+                    <React.Fragment key={stop.id}>
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200/70">
+                        {stop.city_name}
+                        {stop.nights ? (
+                          <span className="text-[10px] text-slate-500 font-normal">({stop.nights}N)</span>
+                        ) : null}
+                      </span>
+                      {idx < trip.stops.length - 1 && (
+                        <span className="text-slate-400 font-bold text-xs">➔</span>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-slate-400 italic">No destination stops added yet</span>
+              )}
+            </div>
 
-            <button
-              id={`trip-delete-btn-${trip.id}`}
-              onClick={(e) => handleDelete(trip.id, e)}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-              title="Delete Trip"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {/* Tags */}
+            {trip.tags && trip.tags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {trip.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[11px] font-medium px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded-md"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          <button
-            onClick={() => {
-              onSelectTrip(trip.id);
-              onNavigate('itinerary-view', trip.id);
-            }}
-            className="font-bold text-sky-600 group-hover:text-sky-700 flex items-center gap-1 cursor-pointer"
-          >
-            <span>Open Plan</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+          {/* Quick Metrics & Actions Bar */}
+          <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+            {/* Financials & Activities */}
+            <div className="flex items-center gap-4 text-slate-600">
+              <div className="flex items-center gap-1.5">
+                <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold leading-none">TOTAL BUDGET</span>
+                  <span className="font-extrabold text-slate-900 text-sm">
+                    ${(budget.totalPlanned || trip.target_budget || 0).toLocaleString('en-US')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-6 w-px bg-slate-200" />
+
+              <div className="flex items-center gap-1.5">
+                <ActivityIcon className="w-4 h-4 text-sky-600 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold leading-none">ACTIVITIES</span>
+                  <span className="font-bold text-slate-800 text-sm">
+                    {totalActivities} Scheduled
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center space-x-1">
+                <button
+                  id={`trip-share-btn-${trip.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenShareModal(trip);
+                  }}
+                  className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                  title="Share Itinerary"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+
+                <button
+                  id={`trip-duplicate-btn-${trip.id}`}
+                  onClick={(e) => handleDuplicate(trip, e)}
+                  className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                  title="Clone Itinerary"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+
+                <button
+                  id={`trip-builder-btn-${trip.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectTrip(trip.id);
+                    onNavigate('itinerary-builder', trip.id);
+                  }}
+                  className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  title="Edit Builder"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+
+                <button
+                  id={`trip-delete-btn-${trip.id}`}
+                  onClick={(e) => handleDelete(trip.id, e)}
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  title="Delete Trip"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                id={`trip-view-plan-${trip.id}`}
+                onClick={() => {
+                  onSelectTrip(trip.id);
+                  onNavigate('itinerary-view', trip.id);
+                }}
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+              >
+                <span>View Plan</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -297,7 +374,7 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Saved Notification Banner */}
+      {/* Saved Toast Notification */}
       {showSavedToast && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-950 p-4 rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-3">
@@ -320,14 +397,14 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
         </div>
       )}
 
-      {/* Header Bar */}
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-            My Travel Itineraries
+            User Trip Listing
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Organize multi-city routes, track budgets, and browse upcoming vs completed journeys.
+            Overview of your ongoing, upcoming, and completed travel itineraries with detailed route cards.
           </p>
         </div>
 
@@ -341,58 +418,89 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
         </button>
       </div>
 
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center space-x-1 overflow-x-auto pb-1 md:pb-0">
-          {[
-            { id: 'all', label: `All Trips (${trips.length})` },
-            {
-              id: 'upcoming',
-              label: `Upcoming (${trips.filter((t) => t.end_date >= todayStr).length})`,
-            },
-            {
-              id: 'completed',
-              label: `Completed (${trips.filter((t) => t.end_date < todayStr).length})`,
-            },
-            {
-              id: 'public',
-              label: `Public (${trips.filter((t) => t.is_public).length})`,
-            },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* Screen 6 Top Toolbar: [ Search bar ...... ] [ Group by ] [ Filter ] [ Sort by... ] */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          {/* Search bar */}
+          <div className="md:col-span-5 relative">
+            <input
+              id="trip-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search bar ...... (trips, destinations, activities)"
+              className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          </div>
 
-        <div className="relative w-full md:w-72">
-          <input
-            id="mytrips-search-input"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search trips or cities..."
-            className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2" />
+          {/* Group by */}
+          <div className="md:col-span-2 flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+            <Layers className="w-4 h-4 text-slate-500 shrink-0" />
+            <div className="w-full">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none">Group by</span>
+              <select
+                id="trip-group-select"
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as any)}
+                className="w-full bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="status">Status (Ongoing / Up-coming / Completed)</option>
+                <option value="none">Flat List (All)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Filter */}
+          <div className="md:col-span-2 flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+            <SlidersHorizontal className="w-4 h-4 text-slate-500 shrink-0" />
+            <div className="w-full">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none">Filter</span>
+              <select
+                id="trip-filter-select"
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="All">All Categories</option>
+                <option value="Adventure">Adventure Sports</option>
+                <option value="Water Sports">Water Sports & Beaches</option>
+                <option value="Mountains">Mountains & Alps</option>
+                <option value="Art">Art & Culture</option>
+                <option value="Culinary">Food & Culinary</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Sort by */}
+          <div className="md:col-span-3 flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+            <ArrowUpDown className="w-4 h-4 text-slate-500 shrink-0" />
+            <div className="w-full">
+              <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none">Sort by...</span>
+              <select
+                id="trip-sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="w-full bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="date_asc">Start Date (Upcoming First)</option>
+                <option value="date_desc">Start Date (Latest First)</option>
+                <option value="budget_desc">Budget (High to Low)</option>
+                <option value="budget_asc">Budget (Low to High)</option>
+                <option value="name">Trip Name (A-Z)</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Loading state */}
+      {/* Trip Listing Stacked Sections */}
       {loading ? (
         <div className="py-16 text-center">
           <div className="w-8 h-8 border-3 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs text-slate-500">Loading your itineraries...</p>
+          <p className="text-xs text-slate-500">Loading your trip overview...</p>
         </div>
-      ) : searchFilteredTrips.length === 0 ? (
+      ) : processedTrips.length === 0 ? (
         <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center max-w-lg mx-auto">
           <div className="w-14 h-14 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-4">
             <Calendar className="w-7 h-7" />
@@ -401,7 +509,7 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
             {searchQuery
               ? 'No trips matched your search filter. Try clearing your query.'
-              : 'You haven’t created any itineraries yet.'}
+              : 'You haven’t planned any itineraries yet.'}
           </p>
           <button
             onClick={() => onNavigate('create-trip')}
@@ -410,135 +518,96 @@ export const MyTripsView: React.FC<MyTripsViewProps> = ({
             <PlusCircle className="w-4 h-4" /> Start Planning Now
           </button>
         </div>
-      ) : (
+      ) : groupBy === 'status' ? (
         <div className="space-y-10">
-          {/* ================= SECTION 1: UPCOMING TRIPS ================= */}
-          {(activeTab === 'all' || activeTab === 'upcoming') && (
-            <section id="section-upcoming-trips" className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Compass className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                      Upcoming & Active Trips
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                        {upcomingTrips.length}
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Journeys planned for the future and currently ongoing routes
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => onNavigate('create-trip')}
-                  className="text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1 hover:underline cursor-pointer"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>New Journey</span>
-                </button>
+          {/* ================= 1. ONGOING ================= */}
+          <section id="section-ongoing-trips" className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
+                <h2 className="text-xl font-extrabold text-slate-900">
+                  Ongoing
+                </h2>
+                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                  {ongoingTrips.length}
+                </span>
               </div>
+              <span className="text-xs text-slate-400 font-medium">Currently active travel routes</span>
+            </div>
 
-              {upcomingTrips.length === 0 ? (
-                <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-                  <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-60" />
-                  <p className="text-xs font-semibold text-slate-700">No upcoming trips scheduled</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Plan your next vacation or weekend getaway to see it appear here.
-                  </p>
-                  <button
-                    onClick={() => onNavigate('create-trip')}
-                    className="mt-3 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" /> Plan a Trip
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {upcomingTrips.map(renderTripCard)}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* ================= SECTION 2: COMPLETED TRIPS ================= */}
-          {(activeTab === 'all' || activeTab === 'completed') && (
-            <section id="section-completed-trips" className="space-y-4 pt-2">
-              <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-                    <History className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                      Completed Trips & Past Travels
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800">
-                        {completedTrips.length}
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Past routes, expenses logged, and visited sights archive
-                    </p>
-                  </div>
-                </div>
+            {ongoingTrips.length === 0 ? (
+              <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+                No trip is currently ongoing today. Your next adventure begins soon!
               </div>
-
-              {completedTrips.length === 0 ? (
-                <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-                  <CheckCircle className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-60" />
-                  <p className="text-xs font-semibold text-slate-700">No completed trips yet</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Trips whose end dates have passed will automatically archive here.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {completedTrips.map(renderTripCard)}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Public Trips Tab view if selected */}
-          {activeTab === 'public' && (
-            <section id="section-public-trips" className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                      Public Shared Trips
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
-                        {publicTrips.length}
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Trips shared with a public web link or published to community explorer
-                    </p>
-                  </div>
-                </div>
+            ) : (
+              <div className="space-y-4">
+                {ongoingTrips.map((trip) => renderTripOverviewCard(trip, 'Ongoing'))}
               </div>
+            )}
+          </section>
 
-              {publicTrips.length === 0 ? (
-                <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-                  <Globe className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-60" />
-                  <p className="text-xs font-semibold text-slate-700">No public trips found</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Click the share icon on any trip card to generate a shareable link.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {publicTrips.map(renderTripCard)}
-                </div>
-              )}
-            </section>
-          )}
+          {/* ================= 2. UP-COMING ================= */}
+          <section id="section-upcoming-trips" className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-sky-600" />
+                <h2 className="text-xl font-extrabold text-slate-900">
+                  Up-coming
+                </h2>
+                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                  {upcomingTrips.length}
+                </span>
+              </div>
+              <span className="text-xs text-slate-400 font-medium">Scheduled future itineraries</span>
+            </div>
+
+            {upcomingTrips.length === 0 ? (
+              <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+                No upcoming trips scheduled. Click "Plan New Trip" to schedule your next voyage!
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {upcomingTrips.map((trip) => renderTripOverviewCard(trip, 'Up-coming'))}
+              </div>
+            )}
+          </section>
+
+          {/* ================= 3. COMPLETED ================= */}
+          <section id="section-completed-trips" className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-slate-400" />
+                <h2 className="text-xl font-extrabold text-slate-900">
+                  Completed
+                </h2>
+                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800">
+                  {completedTrips.length}
+                </span>
+              </div>
+              <span className="text-xs text-slate-400 font-medium">Past travels and memories</span>
+            </div>
+
+            {completedTrips.length === 0 ? (
+              <div className="bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
+                No completed trips yet. Trips past their end date will automatically archive here.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {completedTrips.map((trip) => renderTripOverviewCard(trip, 'Completed'))}
+              </div>
+            )}
+          </section>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {processedTrips.map((trip) => {
+            const status = trip.start_date <= todayStr && trip.end_date >= todayStr
+              ? 'Ongoing'
+              : trip.start_date > todayStr
+              ? 'Up-coming'
+              : 'Completed';
+            return renderTripOverviewCard(trip, status as any);
+          })}
         </div>
       )}
     </div>
